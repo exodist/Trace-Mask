@@ -914,7 +914,7 @@ traces.
 
 =head1 SOURCE
 
-The source code repository for Test::Stream can be found at
+The source code repository for Trace-Mask can be found at
 F<http://github.com/exodist/Trace-Mask>.
 
 =head1 MAINTAINERS
