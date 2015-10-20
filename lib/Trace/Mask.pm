@@ -22,7 +22,9 @@ sub get_masks() { no warnings 'once'; \%Trace::Mask::MASKS }
 
 sub subname {
     my $cobj = B::svref_2object($_[0]);
-    return $cobj->GV->NAME;
+    my $package = $cobj->GV->STASH->NAME;
+    my $subname = $cobj->GV->NAME;
+    return "$package\::$subname";
 }
 
 sub hide_call {
@@ -41,7 +43,7 @@ sub hide_call {
         return;
     }
 
-    die "Invalid argument to hide_call(): '$arg' at $file line $line.\n"
+    die "Invalid argument to hide_call(): $arg at $file line $line.\n"
         unless reftype($arg) eq 'CODE';
 
     my $name = subname($arg);
@@ -67,7 +69,7 @@ sub stop_at_call {
         return;
     }
 
-    die "Invalid argument to stop_at_call(): '$arg' at $file line $line.\n"
+    die "Invalid argument to stop_at_call(): $arg at $file line $line.\n"
         unless reftype($arg) eq 'CODE';
 
     my $name = subname($arg);
@@ -168,7 +170,6 @@ sub shift_call {
 
     @_ = (@_);    # Hide the shifted args
     goto &$arg;
-
 }
 
 sub hide_this_call {
