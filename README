@@ -4,51 +4,62 @@ NAME
 DESCRIPTION
     This is a specification packages can follow to define behaviors stack
     tracers may choose to honor. If a module implements this specification
-    that any compliant stack tracer will render a stack trace that has been
-    modified as desried by the module. Implementing the spec will have no
-    effect on non-complient stack tracers. This specification does not
-    effect "caller()" in any way.
+    than any compliant stack tracer will render the stack trace as desired.
+    Implementing the spec will have no effect on non-complient stack
+    tracers. This specification does not effect "caller()" in any way.
 
-JUSTIFICATION
-    There are times where it can be very useful to modify a stack trace.
-    Sub::Uplevel is one example of a module implementing similar behavior.
-    The problem is that in order to effect a stack trace you either need to
-    use utilies provided by a specific tracer (such as Carp's @CARP_NOT) or
-    you need to globally override "caller()" which is awful, and effects
-    things other than stack traces.
+PRACTICAL APPLICATIONS
+    Masking stack traces is not something you want to do every day, but
+    there are situations where it can be helpful, if not essential.
 
-    This specification takes a completely different approach. This
-    specification applies to module that wish to effect stack traces. Only
-    stack traces provided by compliant tracers will be effected. The benefit
-    here is that modules only need to use 1 set of tools to potentially
-    effect several tracers. The downside is that tracers have to opt-in, and
-    may not produce the desired traces.
+    Emulate existing language structures
+            sub foo {
+                if ($cond) { trace() }
+            }
 
-    This specification helps avoid the hackery of overriding "caller()". An
-    added benefit is that the specification is unobtrusive, if something is
-    not compliant it will simply have no effect.
+        In the example above a stack trace is produced, the call to "foo()"
+        will show up, but the "if" block will not. This is useful as the
+        conditional is part of the sub, and should not be listed.
 
-    Following this spec also means there is a single universal way to turn
-    it off. The $ENV{NO_TRACE_MASK} environment variable can be used to turn
-    off all masking ensuring you get a COMPLETE sack trace that has not been
-    modified.
+        Emulating this behavior would be a useful feature for exception
+        tools that provide try/catch/finally or similar control structures.
 
-  WHERE IS THIS USEFUL?
-    Tools like Test::Exception which use Sub::Uplevel to hide stack frames
-    so that the test tool itself is not in the stack trace.
+            try   { ... }
+            catch { ... };
 
-    Tools like Try::Tiny that can benefit from hiding the call to try and
-    the anonymous codeblock so that stack traces are more sane.
+        In perl the above would be emulated with 2 subs that take codeblocks
+        in their prototype. In a stack trace you see a call to try, and a
+        call to an anonymous block. In a stack trace this is distracting at
+        best. Further it is hard to distinguish which anonymous block you
+        are in, though tools like Sub::Name mitigate this some.
+
+    Testing Tools
+        Tools like Test::Exception use Sub::Uplevel to achieve a similar
+        effect. This is done by globally overriding "caller()", which can
+        have some unfortunate side effects. Using Trace::Mask instead would
+        avoid the nasty side effects, would be much faster than overriding
+        "caller()", and give more control over what makes it into the trace.
+
+    One interface to many tools
+        Currently Carp provides several configuration variables such as
+        @CARP_NOT to give you control over where a trace starts. Other
+        modules that provide stack traces all provide their own variables.
+        If you want to control stack traces you need to account for all the
+        possible tracing tools that could be used. Many tracing tools do not
+        provide enough control, including "Carp" itself.
 
 SPECIFICATION
     No module (including this one) is required when implementing the spec.
     Though it is a good idea to list the version of the spec you have
-    implemented in the runtime recommendations for your module.
+    implemented in the runtime recommendations for your module. There are no
+    undesired side effects as the specification is completely opt-in, both
+    for modules that want to effect stack traces, and for the stack tracers
+    themselves.
 
   %Trace::Mask::MASKS
     Packages that wish to mask stack frames may do so by altering the
     %Trace::Mask::MASKS package variable. Packages may change this variable
-    at any time, so consumers should not cashe the contents, however they
+    at any time, so consumers should not cache the contents, however they
     may cache the reference to the hash itself.
 
     This is an overview of the MASKS structure:
@@ -56,9 +67,7 @@ SPECIFICATION
         %Trace::Mask::MASKS = (
             FILE => {
                 LINE => {
-                    '*' => {...},    # Effects all calls on the line
-
-                    SUBNAME => {     # effect calls with the specified sub name only
+                    SUBNAME => {
                         # Behaviors
                         hide     => BOOL,     # Hide the frame completely
                         no_start => BOOL,     # Do not start a trace on this frame
@@ -85,15 +94,25 @@ SPECIFICATION
     to itself.
 
     A stack frame is defined based on the return from "caller()" which
-    returns the "($package, $file, $line)" data of a call in the stack. To
-    manipulate a call you define the $MASKS{$file}->{$line} path in the hash
-    that matches the call itself.
+    returns the "($package, $file, $line, $subname)" data of a call in the
+    stack. To manipulate a call you define the
+    $MASKS{$file}->{$line}->{$subname} path in the hash that matches the
+    call itself.
 
-    Inside the "{$file}->{$line}" path you can define the '*' key which
-    effects ALL subs called on that file+line.
+    'FILE', 'LINE', and 'SUBNAME' can all be replaced with the wildcard '*'
+    string to apply to all:
 
-    Sub specific behavior should be defined in $MASKS{$file}->{$line} with a
-    key that contains the sub name as it appears from "caller($l)".
+        # Effect all calls to Foo::foo in any file
+        ('*' => { '*' => { Foo::foo => { ... }}})
+
+        # Effect all sub calls in Foo.pm
+        ('Foo.pm' => { '*' => { '*' => { ... }}});
+
+    You cannot use 3 wildcards to effect all subs. The 3 wildcard entry will
+    be ignored by a compliant tracer.
+
+        # This is not allowed, the entry will be ignored
+        ('*' => { '*' => { '*' => { ... }}});
 
   CALL MASK HASHES
     Numeric keys in the behavior structures are replacement values. If you
@@ -138,307 +157,52 @@ SPECIFICATION
         This tells the stack tracer to skip $DELTA frames after this one,
         effectively upleveling the call. In addition the package+file+line
         number of the bottom-most skipped frame will replace the shifted
-        frames package, file and line numbers.
-
-REFERENCE IMPLEMENTATION
-    This specification includes a reference implmentation of a stack tracer
-    that honors the specification. It also provides tools that help produce
-    the %MASKS structure in a maintainable way. These tools make it so that
-    you do not have to manually update the structure every time line numbers
-    or filenames change.
-
-  EXPORTS
-    Note: All exports are optional, you must request them if you want them.
-
-    $frames_ref = trace()
-    $frames_ref = trace($level)
-        This produces an array reference containing stack frames of a trace.
-        Each frame is an arrayref that matches the return from "caller()",
-        with the additon that the last index contains the arguments used in
-        the call. Never rely on the index number of the arguments, always
-        pop them off if you need them, different versions of perl may have a
-        different number of values in a stack frame.
-
-        Index 0 of the $frames_ref will be the topmost call of the trace,
-        the rest will be in descending order.
-
-        See "trace_string()" for a tool to provide a carp-like stack trace.
-
-        $level may be specified to start the stack at a deeper level.
-
-    $trace = trace_string()
-    $trace = trace_string($level)
-        This provides a stack trace string similar to "longmess()" from
-        Carp. Though it does not indent the trace, and it does not take the
-        form of an error report.
-
-        $level may be specified to start the stack at a deeper level.
-
-    ($pkg, $file, $line) = get_call()
-    ($pkg, $file, $line, $name, ...) = get_call($level)
-        This is a "caller()" emulator that honors the stack tracing
-        specifications. Please do not override "caller()" with this. This
-        implementation take a FULL stack trace on each call, and returns
-        just the desired frame from that trace.
-
-    hide_this_call()
-    hide_this_call($level)
-        Hide the call to the current function. Optionally you can specify
-        $level to hide a call to a deeper sub, useful for wrappers. Keep in
-        mind this adds/modifies entries for the file and line where the
-        current executing sub was called, with may be a file/line outside of
-        your own codebase.
-
-    stop_at_this_call()
-    stop_at_this_call($level)
-        Make stack traces stop at the call to the currently running sub.
-        That means only this frame, and frames it calls will be shown in the
-        trace. You can also use "hide_this_frame()" to make a trace only
-        show nested frames.
-
-        Note: This must be called before calling any other subs for it to
-        have any effect.
-
-    no_start_at_this_call()
-    no_start_at_this_call($level)
-        Make sure stack traces do not start at the call to the currently
-        running sub.
-
-    shift_this_call($delta)
-    shift_this_call($delta, $level)
-        Raise the level of the current sub in the stack trace. This
-        effectively hides the frame before this one, but this one inherits
-        the package, file, and line of the previous frame. This has the same
-        effect on the trace as the "goto &sub" form of goto. $delta is how
-        many levels the frame should be raised. $level can be used to raise
-        a deeper frame than the current one.
-
-    hide_call()
-    hide_call($line_delta)
-    hide_call($line_delta, @names)
-    $ret = hide_call(\&code, @args)
-        This function allows you to hide a call from a stack trace. With no
-        arguments it will hide any call in the same file+line as the
-        "hide_call()" call itself. You can also specify a $line_delta
-        meaning it will hide any call in the same file+line+line_delta.
-        These 2 forms are most useful in a BEGIN block.
-
-            sub foo {
-                BEGIN { hide_call(1) }; # Hide calls on the next line
-                bar(); # This is hidden
-            }
-
-            sub foo {
-                bar(); BEGIN { hide_call() }; # Hide the call to bar()
-            }
-
-        This form is the most performant as "hide_call()" is only called
-        once.
-
-        If @names are specified, then the behavior will only be defined for
-        the specified sub names. If no names are specified then a '*' entry
-        is added so that it effects all subs on the file+line specified.
-
-        The alternative is to provide a coderef and arguments:
-
-            my $sum = hide_call(sub { $_[0] + $_[1] }, 5, 5);
-
-        This will set the call to be hidden, then it will use "goto &sub" to
-        run your code.
-
-        Note: In both cases the stack frame is completely dropped from the
-        trace, no line numbers or file names will be adjusted in any other
-        frames. The frame is simply omitted.
-
-    shift_call($shift_delta)
-    shift_call($shift_delta, $line_delta)
-    shift_call($shift_delta, $line_delta, @names)
-    $ret = shift_call($shift_delta, \&code, @args)
-        This function will shift a stack frame up by a number of frames,
-        effectively hiding the frames between it and its new level. In
-        addition it will adjust the file+line numbers listed in the frames.
-        This will produce a stack frame similar to one if you had used "goto
-        &sub" in the hidden frames. This is similar to the behavior of
-        "uplevel" from Sub::Uplevel, the differnce is that this one only
-        effects stack traces, it does not effect caller().
-
-        The primary form is to provide a shift amount, and optionally a line
-        delta. It is best to do this in a BEGIN blog so that it only runs
-        once.
-
-            sub foo {
-                BEGIN { shift_call(1, 1) }; # shift calls on the next line up a level
-                bar(); # This is shifted, the call to foo() will appear to be the call to bar()
-            }
-
-            sub foo {
-                bar(); BEGIN { shift_call(1) }; # pretend the call to foo() was the call to bar()
-            }
-
-        If @names are specified, then the behavior will only be defined for
-        the specified sub names. If no names are specified then a '*' entry
-        is added so that it effects all subs on the file+line specified.
-
-        As an alternative you can provide a codeblock instead of a line
-        delta:
-
-            my $result = shift_call(1, sub { ... }, ...);
-
-        This is just like "goto &$sub" as far as stack traces are concerned.
-        However "caller()" is not effected, and you do not actually unwind
-        the current stack frame.
-
-        Note: This effects ALL calls on the file+line, Putting 2 calls on
-        the same line is unlikely to have the desried effect.
-
-    stop_at_call()
-    stop_at_call($line_delta)
-    stop_at_call($line_delta, @names)
-    $ret = stop_at_call(\&code, @args)
-        This function will mark a call as a place where a stack trace should
-        end. By end this means it is the bottom-most frame that will be
-        reported in the trace.
-
-        The primary form is to use this in a BEGIN block near the call:
-
-            sub foo {
-                BEGIN { stop_at_call(1) }; # stop tracing at the call on the next line
-                bar(); # This call will be the bottom of the trace, the call to foo() will not be seen.
-            }
-
-            sub foo {
-                bar(); BEGIN { stop_at_call() }; # pretend the call to bar() is the bottom of the stack
-            }
-
-        If @names are specified, then the behavior will only be defined for
-        the specified sub names. If no names are specified then a '*' entry
-        is added so that it effects all subs on the file+line specified.
-
-        Alternatively you can use this function to dispatch another sub that
-        is used as the bottom:
-
-            my $result = stop_at_call(sub { ... }, ...);
-
-    no_start_call()
-    no_start_call($line_delta)
-    no_start_call($line_delta, @names)
-    $ret = no_start_call(\&code, @args)
-        This function will prevent the stack from starting at the specified
-        call. The call will still show up in the trace if it is below the
-        starting frame, but it will be skipped if it is the top frame.
-
-        The primary form is to use this in a BEGIN block near the call:
-
-            sub foo {
-                BEGIN { no_start_call(1) }; # The next call is not the top of the trace
-                bar(); # This call will not be the top of a stack trace
-            }
-
-            sub foo {
-                bar(); BEGIN { stop_at_call() }; # If bar() initiates a trace, it is hidden
-            }
-
-        If @names are specified, then the behavior will only be defined for
-        the specified sub names. If no names are specified then a '*' entry
-        is added so that it effects all subs on the file+line specified.
-
-        Alternatively you can use this function to dispatch another sub:
-
-            my $result = no_start_call(sub { ... }, ...);
-
-    mask_call(\%mask)
-    mask_call(\%mask, $line_delta)
-    mask_call(\%mask, $line_delta, @names)
-    $ret = mask_call(\%mask, \&code, ...)
-        This is a higher level version of the other *_call functions.
-        Instead of defining a single behavior it allows you to define the
-        mask hash itself.
-
-        The primary form is to use this in a BEGIN block near the call:
-
-            sub foo {
-                BEGIN { mask_call({...}, 1) }; # Define the mask for the next line
-                bar(); # masked
-            }
-
-            sub foo {
-                bar(); BEGIN { mask_call({...}) }; # Mask this call to bar()
-            }
-
-        If @names are specified, then the behavior will only be defined for
-        the specified sub names. If no names are specified then a '*' entry
-        is added so that it effects all subs on the file+line specified.
-
-        Alternatively you can use this function to dispatch another sub:
-
-            my $result = mask_call({...}, sub { ... }, ...);
-
-    $error = try_call { ... }
-        A reference implementation of "try { ... }" that demonstrates the
-        trace masking behavior. Please do not use this in production code,
-        it is a very dumb, and not-very-useful implementation of "try" that
-        serves as a demo.
-
-            use Trace::Mask qw/try_call trace_string/;
-
-            sub foo {
-                print trace_string;
-            }
-
-            sub bar {
-                my $error = try_call { foo() };
-                die $error if $error;
-            }
-
-            sub baz {
-                bar();
-            }
-
-            baz();
-
-        This produces the following stack trace:
-
-            main::foo() called at test.pl line 8
-            main::bar() called at test.pl line 13
-            main::baz() called at test.pl line 16
-
-        Notice that the call to try, the eval it uses inside, and the call
-        to the anonymous codeblock are all hidden. This effectively removes
-        noise from the stack trace. It makes 'try' look just like an 'if' or
-        'while' block. There is a downside however if anything inside the
-        "try" implementation itself is broken.
-
-    $mask = is_masked(\@frame)
-        If the frame (file+line) have a mask, it will be returned. In cases
-        where the file+line have both a '*' mask and a mask matching the
-        frames sub name, it will return a single hashref with a combination
-        of the 2 hashes. Values in the '*' hash will be overriden by the
-        sub-specific one.
-
-            $mask = { %{$wildcard}, %{$sub_specific} };
-
-    $bool = is_hidden(\@frame)
-        True if the frame should be hidden in a trace.
-
-    $delta = is_shift(\@frame)
-        The number of levels by which the frame should be shifted.
-
-    $bool = is_stop(\@frame)
-        True if the frame should be the end of a trace.
-
-    $bool = is_no_start(\@frame)
-        True if the frame should not be the start of a trace.
-
-    apply_mask(\@frame)
-        This modifies the frame provided based on any masks that apply to
-        it. This modifies the input argument directly.
-
-    $new = copy_masked(\@frame)
-        Same as "apply_mask()" except the original is unmodified and a
-        modified copy is returned instead.
-
-    $masks_ref = get_masks()
-        Get a reference to %Trace::Mask::MASKS.
+        frames package, file and line numbers. The $DELTA value must be a
+        positive integer greater than 0.
+
+  MASK RESOLUTION
+    Multiple masks in the %Trace::Mask::MASKS structure may apply to any
+    given stack frame, a compliant tracer will account for all of them. A
+    simple hash merge is sufficient so long as they are merged in the
+    correct order. Here is an example:
+
+        my $masks_ref = \%Trace::Mask::MASKS;
+
+        my @all = grep { defined $_ } (
+            $masks_ref->{$file}->{'*'}->{'*'},
+            $masks_ref->{$file}->{$line}->{'*'},
+            $masks_ref->{'*'}->{'*'}->{$name},
+            $masks_ref->{$file}->{'*'}->{$name},
+            $masks_ref->{$file}->{$line}->{$name},
+        );
+
+        my %final = map { %{$_} } @all;
+
+    The most specific path should win out (override others). Rightmost path
+    component is considered the most important. More wildcards means less
+    specific. Paths may never have wildcards for all 3 components.
+
+  $ENV{'NO_TRACE_MASK'}
+    If this environment variable is set to true then all masking rules
+    should be ignored, tracers should produce full and complete stack
+    traces.
+
+CLASS METHODS
+    The "masks()" method is defined in Trace::Mask, it returns a reference
+    to the %Trace::Mask::MASKS hash for easy access. It is fine to cache
+    this reference, but not the data it contains.
+
+REFERENCE
+    Trace::Mask::Reference is included in this distribution. The Reference
+    module contains example tracers, and example tools that benefit from
+    masking stack traces. The examples in this module should NOT be used in
+    production code.
+
+UTILS
+    Trace::Mask::Util is included in this distribution. The util module
+    provides utilities for adding stack trace masking behavior. The
+    utilities provided by this module are considered usable in production
+    code.
 
 SEE ALSO
     Sub::Uplevel - Tool for hiding stack frames from all callers, not just
