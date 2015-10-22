@@ -142,11 +142,6 @@ Numeric fields always correspond to the same index in the list returned from
 
 The following additional behaviors may be specified:
 
-- hide => $BOOL
-
-    This completely hides the frame from a stack trace. This does not modify the
-    values of any surrounding frames, the frame is simply dropped from the trace.
-
 - no\_start => $BOOL
 
     This prevents a stack trace from starting at the given call. This is similar to
@@ -158,12 +153,22 @@ The following additional behaviors may be specified:
     This tells the stack tracer to stop tracing at this frame. The frame itself
     will be listed in the trace, unless this is combined with the 'hide' option.
 
-- shift => $DELTA,
+- hide => $COUNT
 
-    This tells the stack tracer to skip `$DELTA` frames after this one,
-    effectively upleveling the call. In addition the package+file+line number of
-    the bottom-most skipped frame will replace the shifted frames package, file and
-    line numbers. The `$DELTA` value must be a positive integer greater than 0.
+    This completely hides the frame from a stack trace. This does not modify the
+    values of any surrounding frames, the frame is simply dropped from the trace.
+    If `$COUNT` is greater than 1, then additional frames below the hidden one
+    will also be dropped.
+
+    This has the same effect on a stack trace as [Sub::Uplevel](https://metacpan.org/pod/Sub::Uplevel).
+
+- shift => $COUNT
+
+    This is like hide with one important difference, all components of the shifted
+    call, except for package, file, and line, will replace the values of the next
+    frame to be kept in the trace.
+
+    This has the same effect on a stack trace as `goto &sub`.
 
 ## MASK RESOLUTION
 
