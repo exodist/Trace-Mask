@@ -162,11 +162,6 @@ The following additional behaviors may be specified:
 
 =over 4
 
-=item hide => $BOOL
-
-This completely hides the frame from a stack trace. This does not modify the
-values of any surrounding frames, the frame is simply dropped from the trace.
-
 =item no_start => $BOOL
 
 This prevents a stack trace from starting at the given call. This is similar to
@@ -178,12 +173,22 @@ trace if they are not the start.
 This tells the stack tracer to stop tracing at this frame. The frame itself
 will be listed in the trace, unless this is combined with the 'hide' option.
 
-=item shift => $DELTA,
+=item hide => $COUNT
 
-This tells the stack tracer to skip C<$DELTA> frames after this one,
-effectively upleveling the call. In addition the package+file+line number of
-the bottom-most skipped frame will replace the shifted frames package, file and
-line numbers. The C<$DELTA> value must be a positive integer greater than 0.
+This completely hides the frame from a stack trace. This does not modify the
+values of any surrounding frames, the frame is simply dropped from the trace.
+If C<$COUNT> is greater than 1, then additional frames below the hidden one
+will also be dropped.
+
+This has the same effect on a stack trace as L<Sub::Uplevel>.
+
+=item shift => $COUNT
+
+This is like hide with one important difference, all components of the shifted
+call, except for package, file, and line, will replace the values of the next
+frame to be kept in the trace.
+
+This has the same effect on a stack trace as C<goto &sub>.
 
 =back
 

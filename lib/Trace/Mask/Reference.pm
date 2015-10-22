@@ -6,7 +6,7 @@ use Carp qw/croak/;
 
 use Scalar::Util qw/reftype looks_like_number refaddr blessed/;
 
-use Trace::Mask::Util qw/mask_frame mask_line/;
+use Trace::Mask::Util qw/mask_frame mask_line get_mask/;
 
 use Exporter qw/import/;
 our @EXPORT_OK = qw{
@@ -18,87 +18,96 @@ our @EXPORT_OK = qw{
 
 sub try_example(&) {
     my $code = shift;
-
-    # Hide the call to try_example
-    mask_frame(hide => 1);
-
     local $@;
-    BEGIN { mask_line({hide => 1}, 1) } # Hides both the eval, and the anon-block call
-    my $ok = eval { $code->(); 1 };
+    my $ok = eval {
+        # Hides the call, the eval, and the call to try_example
+        BEGIN { mask_line({hide => 3}, 1) }
+        $code->();
+        1;
+    };
     return if $ok;
     return $@ || "error was smashed!";
 }
 
+sub _call_details {
+    my ($level) = @_;
+    $level += 1;
+
+    my @call;
+    my @args;
+    {
+        package DB;
+        @call = caller($level);
+        @args = @DB::args;
+    }
+
+    return unless @call && defined $call[0];
+    return (\@call, \@args);
+}
+
 sub trace {
-    package DB;
     my ($level) = @_;
     $level = 0 unless defined($level);
     $level += 1;
 
     my @stack;
-    STACK: while (my @call = caller($level++)) {
-        my $mask = Trace::Mask::Util::get_mask(@call[1,2,3]);
 
-        # Shortcut if there is no mask, or if masks are disabled
-        if ($ENV{NO_TRACE_MASK} || !$mask) {
-            push @call  => [@DB::args];
-            push @stack => \@call;
-            next;
+    # Shortcut
+    if ($ENV{NO_TRACE_MASK}) {
+        while (my ($call, $args) = _call_details($level++)) {
+            push @stack => [$call, $args];
+        }
+        return @stack;
+    }
+
+    my ($shift, $frame);
+    my $skip = 0;
+    while (my ($call, $args) = _call_details($level++)) {
+        my $mask = get_mask(@{$call}[1,2,3]);
+        $frame = [$call, $args, $mask];
+
+        if ($mask->{shift}) {
+            $shift ||= $frame;
+            $skip   += $mask->{shift};
+        }
+        elsif ($mask->{hide}) {
+            $skip += $mask->{hide};
+        }
+        elsif($skip && !(--$skip) && $shift) {
+            _do_shift($shift, $frame);
+            $shift = undef;
         }
 
-        # Some frames cannot be used as a start
-        next if $mask->{no_start} && !@stack;
-
-        # Do not show this frame
-        if (my $hide = $mask->{hide}) {
-            # Hide, and stop
-            last if $mask->{stop};
-            next;
-        }
-
-        # Get the args now
-        my $args = [@DB::args];
-
-        if (my $shift = $mask->{shift}) {
-            $level += $shift;
-            my $plevel = $level - 1;
-
-            my $warned = 0;
-            my @parent;
-            while ($plevel) {
-                @parent = caller($plevel--);
-                next unless @parent;
-                my $pmask = Trace::Mask::Util::get_mask(@parent[1,2,3]);
-                next       if $pmask->{hide};
-                last STACK if $pmask->{stop};
-                last       if @parent;
-                next       if $warned++;
-                warn "invalid shift depth ($shift at $call[1] line $call[2]).\n";
+        unless ($skip || ($mask->{no_start} && !@stack)) {
+            for my $idx (grep { m/^\d+$/ } keys %$mask) {
+                next unless exists $mask->{$idx};
+                $call->[$idx] = $mask->{$idx};
             }
 
-            if (@parent) {
-                $call[0] = $parent[0];
-                $call[1] = $parent[1];
-                $call[2] = $parent[2];
-            }
-            else {
-                warn "could not find a usable level (shifted at $call[1] line $call[2]).\n";
-            }
+            push @stack => $frame;
         }
 
-        for my $idx (grep { m/^\d+$/ } keys %$mask) {
-            next unless exists $mask->{$idx};
-            $call[$idx] = $mask->{$idx};
-        }
-
-        push @call  => $args;
-        push @stack => \@call;
-
-        # Stop if the frame is a 'stop' frame.
         last if $mask->{stop};
     }
 
+    _do_shift($shift, $frame) if $shift;
+
     return \@stack;
+}
+
+sub _do_shift {
+    my ($shift, $frame) = @_;
+
+    # Args are a direct move
+    $frame->[1] = $shift->[1];
+
+    # Merge the masks
+    $frame->[2] = { %{$frame->[2]}, %{$shift->[2]} };
+
+    # Copy all caller values from shift except 0-2
+    for(my $i = 3; $i < @{$shift->[0]}; $i++) {
+        $frame->[0]->[$i] = $shift->[0]->[$i];
+    }
 }
 
 sub get_call {
@@ -111,9 +120,8 @@ sub get_call {
     my $frame = $trace->[$level];
     return unless $frame;
 
-    return @{$frame}[0, 1, 2] unless @_;
-    pop @$frame;    # remove args
-    return @$frame;
+    return @{$frame->[0]}[0, 1, 2] unless @_;
+    return @{$frame->[0]};
 }
 
 sub trace_string {
@@ -122,14 +130,14 @@ sub trace_string {
     my $trace  = trace($level + 1);
     my $string = "";
     for my $frame (@$trace) {
-        my $args = $frame->[-1];
+        my ($call, $args) = @$frame;
         my $args_str = join ", " => map { render_arg($_) } @$args;
         $args_str ||= '';
-        if ($frame->[3] eq '(eval)') {
-            $string .= "eval { ... } called at $frame->[1] line $frame->[2]\n";
+        if ($call->[3] eq '(eval)') {
+            $string .= "eval { ... } called at $call->[1] line $call->[2]\n";
         }
         else {
-            $string .= "$frame->[3]($args_str) called at $frame->[1] line $frame->[2]\n";
+            $string .= "$call->[3]($args_str) called at $call->[1] line $call->[2]\n";
         }
     }
 

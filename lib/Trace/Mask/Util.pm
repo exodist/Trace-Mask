@@ -89,6 +89,11 @@ sub validate_mask {
             unless $shift =~ m/^\d+$/ && $shift >= 0;
     }
 
+    if (my $hide = $mask->{hide}) {
+        push @errors => "'hide' value must be a positive integer"
+            unless $hide =~ m/^\d+$/ && $hide >= 0;
+    }
+
     return @errors;
 }
 
