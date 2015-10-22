@@ -1,9 +1,5 @@
-use strict;
-use warnings;
-use Test::More tests => 2;
+use Test::Stream -V1, class => 'Trace::Mask';
 
-use Trace::Mask;
+ref_is($CLASS->masks, \%Trace::Mask::MASKS, "Got the reference");
 
-isa_ok(Trace::Mask->masks, "HASH");
-
-is(Trace::Mask->masks, \%Trace::Mask::MASKS, "Got the reference");
+done_testing;

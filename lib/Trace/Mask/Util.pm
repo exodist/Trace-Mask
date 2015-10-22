@@ -2,7 +2,7 @@ package Trace::Mask::Util;
 use strict;
 use warnings;
 
-use Carp qw/croak/;
+use Carp qw/croak carp/;
 
 use Scalar::Util qw/reftype looks_like_number/;
 use B;
@@ -11,12 +11,21 @@ our $VERSION = "0.000001";
 
 use Exporter qw/import/;
 our @EXPORT_OK = qw{
-    update_mask get_mask
+    update_mask
+    validate_mask
+    get_mask
     mask_line
     mask_call
     mask_sub
     mask_frame
 };
+
+my %VALID_MASK = (
+    hide     => 1,
+    no_start => 1,
+    shift    => 1,
+    stop     => 1,
+);
 
 sub _MASKS() { no warnings 'once'; \%Trace::Mask::MASKS }
 
@@ -27,7 +36,15 @@ sub _subname {
     return "$package\::$subname";
 }
 
-sub update_mask {
+sub _validate_mask {
+    my $mask = shift;
+    my @errors = validate_mask($mask) or return;
+    my @caller = caller(1);
+    my $out = join "\n" => map {"    $_"} @errors;
+    die "Invalid mask at $caller[1] line $caller[2].\n$out\n"
+}
+
+sub _update_mask {
     my ($file, $line, $sub, $mask) = @_;
 
     my $name = ref $sub ? _subname($sub) : $sub;
@@ -43,24 +60,51 @@ sub update_mask {
 
     # Merge new mask into old
     %$ref = (%$ref, %$mask);
-
     return;
+}
+
+sub update_mask {
+    my ($file, $line, $sub, $mask) = @_;
+    _validate_mask($mask);
+    _update_mask(@_);
+}
+
+sub validate_mask {
+    my ($mask) = @_;
+
+    return ("Mask must be a hashref")
+        unless $mask && ref($mask) && reftype($mask) eq 'HASH';
+
+    my @errors;
+
+    # Sort the keys to keep it consistent
+    for my $key (sort keys %$mask) {
+        next if $key =~ m/^\d+$/; # integer keys are always valid
+        next if $VALID_MASK{$key};
+        push @errors => "invalid mask option '$key'";
+    }
+
+    if (my $shift = $mask->{shift}) {
+        push @errors => "'shift' value must be a positive integer"
+            unless $shift =~ m/^\d+$/ && $shift >= 0;
+    }
+
+    return @errors;
 }
 
 sub mask_line {
     my ($mask, $delta, @subs) = @_;
     my ($pkg, $file, $line) = caller(0);
 
+    _validate_mask($mask);
+
+    croak "The second argument to mask_line() must be an integer"
+        if $delta && (ref($delta) || $delta !~ m/^-?\d+$/);
+
     push @subs => '*' unless @subs;
     $line += $delta if $delta;
 
-    croak "The first argument to mask_line() must be a hashref"
-        unless $mask && ref($mask) && reftype($mask) eq 'HASH';
-
-    croak "The second argument to mask_line() must be an integer"
-        if $delta && (ref($delta) || !looks_like_number($delta));
-
-    update_mask($file, $line, $_, {hide => 1}) for @subs;
+    _update_mask($file, $line, $_, $mask) for @subs;
     return;
 }
 
@@ -69,15 +113,14 @@ sub mask_call {
     my $sub = shift;
     my ($pkg, $file, $line) = caller(0);
 
-    $sub = $pkg->can($sub) unless ref $sub;
+    _validate_mask($mask);
 
-    croak "The first argument to mask_call() must be a hashref"
-        unless $mask && ref($mask) && reftype($mask) eq 'HASH';
+    $sub = $pkg->can($sub) if $sub && !ref($sub);
 
     croak "The second argument to mask_call() must be a coderef, or the name of a sub to call"
         unless $sub && ref($sub) && reftype($sub) eq 'CODE';
 
-    update_mask($file, $line, $sub, $mask);
+    _update_mask($file, $line, $sub, $mask);
 
     @_ = (@_);    # Hide the shifted args
     goto &$sub;
@@ -88,26 +131,29 @@ sub mask_sub {
     $file ||= '*';
     $line ||= '*';
 
-    $sub = caller->can($sub) unless ref $sub;
+    _validate_mask($mask);
 
-    croak "The first argument to mask_sub() must be a hashref"
-        unless $mask && ref($mask) && reftype($mask) eq 'HASH';
+    $sub = caller->can($sub) if $sub && !ref($sub);
 
     croak "The second argument to mask_sub() must be a coderef, or the name of a sub in the calling package"
         unless $sub && ref($sub) && reftype($sub) eq 'CODE';
 
-    my $name = subname($sub);
+    my $name = _subname($sub);
     croak "mask_sub() cannot be used on an unamed sub"
         if $name =~ m/__ANON__$/;
 
-    update_mask($file, $line, $name, $mask);
+    _update_mask($file, $line, $name, $mask);
     return;
 }
 
 sub mask_frame {
     my %mask = @_;
+
+    _validate_mask(\%mask);
+
     my ($pkg, $file, $line, $name) = caller(1);
-    update_mask($file, $line, $name, \%mask);
+    _update_mask($file, $line, $name, \%mask);
+
     return;
 }
 
@@ -157,6 +203,12 @@ Update the mask for the specified C<$file>, C<$line>, and C<$sub>. The mask
 hashref will be merged into any existing mask. You may use the wildcard string
 C<'*'> for any 2 of the first 3 arguments. C<$sub> may be coderef, or a fully
 qualified sub name.
+
+=item @errors = validate_mask(\%mask)
+
+This will check the mask to ensure it is valid. If the mask is valid an empty
+list is returned. If there are problems with the mask then a list of error
+strings will be returned.
 
 =item $hr = get_mask($file, $line, $sub)
 
