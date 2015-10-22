@@ -75,10 +75,10 @@ This is an overview of the MASKS structure:
             LINE => {
                 SUBNAME => {
                     # Behaviors
-                    hide     => BOOL,     # Hide the frame completely
                     no_start => BOOL,     # Do not start a trace on this frame
                     stop     => BOOL,     # Stop tracing at this frame
-                    shift    => DELTA,    # Pretend this frame started X frames before it did
+                    hide     => COUNT,    # Hide the frames completely
+                    shift    => COUNT,    # Pretend this frame started X frames before it did
 
                     # Replacements
                     0 => PACKAGE,         # Replace the package listed in the frame
@@ -127,10 +127,10 @@ Numeric fields always correspond to the same index in the list returned from
 
     {
         # Behaviors
-        hide     => BOOL,     # Hide the frame completely
         no_start => BOOL,     # Do not start a trace on this frame
         stop     => BOOL,     # Stop tracing at this frame
-        shift    => DELTA,    # Pretend this frame started X frames before it did
+        hide     => COUNT,    # Hide the frames completely
+        shift    => COUNT,    # Pretend this frame started X frames before it did
 
         # Replacements
         0 => PACKAGE,         # Replace the package listed in the frame
