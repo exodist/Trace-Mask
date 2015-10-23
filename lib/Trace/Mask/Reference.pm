@@ -12,7 +12,7 @@ use Exporter qw/import/;
 our @EXPORT_OK = qw{
     trace
     trace_string
-    get_call
+    trace_mask_caller
     try_example
 };
 
@@ -21,6 +21,9 @@ sub try_example(&) {
     local $@;
     my $ok = eval {
         # Hides the call, the eval, and the call to try_example
+        # This also has the added benefit that if there was an exception inside
+        # try_example itself, the trace would not hide anything. The hide only
+        # effects traces from inside the anonymous sub.
         BEGIN { mask_line({hide => 3}, 1) }
         $code->();
         1;
@@ -33,8 +36,7 @@ sub _call_details {
     my ($level) = @_;
     $level += 1;
 
-    my @call;
-    my @args;
+    my (@call, @args);
     {
         package DB;
         @call = caller($level);
@@ -45,12 +47,29 @@ sub _call_details {
     return (\@call, \@args);
 }
 
-sub trace {
-    my ($level) = @_;
-    $level = 0 unless defined($level);
-    $level += 1;
+sub _do_shift {
+    my ($shift, $frame) = @_;
 
+    # Args are a direct move
+    $frame->[1] = $shift->[1];
+
+    # Merge the masks numeric keys, shift wins
+    for my $key (keys %{$shift->[2]}) {
+        next unless $key =~ m/^\d+$/;
+        $frame->[2]->{$key} = $shift->[2]->{$key};
+    }
+
+    # Copy all caller values from shift except 0-2
+    for(my $i = 3; $i < @{$shift->[0]}; $i++) {
+        $frame->[0]->[$i] = $shift->[0]->[$i];
+    }
+}
+
+sub trace {
     my @stack;
+
+    # Always have to start at 0 since frames can hide frames that come after them.
+    my $level = 0;
 
     # Shortcut
     if ($ENV{NO_TRACE_MASK}) {
@@ -78,46 +97,35 @@ sub trace {
             $shift = undef;
         }
 
-        unless ($skip || ($mask->{no_start} && !@stack)) {
-            for my $idx (grep { m/^\d+$/ } keys %$mask) {
-                next unless exists $mask->{$idx};
-                $call->[$idx] = $mask->{$idx};
-            }
-
-            push @stack => $frame;
+        # Need to do this even if the frame is not pushed now, it may be pushed
+        # later depending on shift.
+        for my $idx (keys %$mask) {
+            next unless $idx =~ m/^\d+$/;
+            next if $idx >= @$call;    # Do not create new call indexes
+            $call->[$idx] = $mask->{$idx};
         }
+
+        push @stack => $frame unless $skip || ($mask->{no_start} && !@stack);
 
         last if $mask->{stop};
     }
 
-    _do_shift($shift, $frame) if $shift;
+    if ($shift) {
+        _do_shift($shift, $frame);
+        push @stack => $frame unless @stack && $stack[-1] == $frame;
+    }
 
     return \@stack;
 }
 
-sub _do_shift {
-    my ($shift, $frame) = @_;
-
-    # Args are a direct move
-    $frame->[1] = $shift->[1];
-
-    # Merge the masks
-    $frame->[2] = { %{$frame->[2]}, %{$shift->[2]} };
-
-    # Copy all caller values from shift except 0-2
-    for(my $i = 3; $i < @{$shift->[0]}; $i++) {
-        $frame->[0]->[$i] = $shift->[0]->[$i];
-    }
-}
-
-sub get_call {
+sub trace_mask_caller {
     my ($level) = @_;
     $level = 0 unless defined($level);
 
-    my $trace = trace($level + 1);
+    my $trace = trace();
     return unless $trace && @$trace;
 
-    my $frame = $trace->[$level];
+    my $frame = $trace->[$level + 2];
     return unless $frame;
 
     return @{$frame->[0]}[0, 1, 2] unless @_;
@@ -127,7 +135,9 @@ sub get_call {
 sub trace_string {
     my ($level) = @_;
     $level = 0 unless defined($level);
-    my $trace  = trace($level + 1);
+    $level += 1;
+    my $trace = trace();
+    shift @$trace while @$trace && $level--;
     my $string = "";
     for my $frame (@$trace) {
         my ($call, $args) = @$frame;
@@ -220,8 +230,6 @@ B<Note:> All exports are optional, you must request them if you want them.
 
 =item $frames_ref = trace()
 
-=item $frames_ref = trace($level)
-
 This produces an array reference containing stack frames of a trace. Each frame
 is an arrayref that matches the return from C<caller()>, with the additon that
 the last index contains the arguments used in the call. Never rely on the index
@@ -245,9 +253,9 @@ report.
 
 C<$level> may be specified to start the stack at a deeper level.
 
-=item ($pkg, $file, $line) = get_call()
+=item ($pkg, $file, $line) = trace_mask_caller()
 
-=item ($pkg, $file, $line, $name, ...) = get_call($level)
+=item ($pkg, $file, $line, $name, ...) = trace_mask_caller($level)
 
 This is a C<caller()> emulator that honors the stack tracing specifications.
 Please do not override C<caller()> with this. This implementation take a FULL

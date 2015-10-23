@@ -186,7 +186,10 @@ This has the same effect on a stack trace as L<Sub::Uplevel>.
 
 This is like hide with one important difference, all components of the shifted
 call, except for package, file, and line, will replace the values of the next
-frame to be kept in the trace.
+frame to be kept in the trace. If C<$COUNT> is large than 1, the shift will
+hide frames between the shifted frame and the new frame. If C<$COUNT> is larger
+than the remaining stack, the lowest stack frame will be the recipient of the
+shift operation, even if the shift frame itself is the lowest.
 
 This has the same effect on a stack trace as C<goto &sub>.
 
@@ -219,6 +222,29 @@ Paths may never have wildcards for all 3 components.
 
 If this environment variable is set to true then all masking rules should be
 ignored, tracers should produce full and complete stack traces.
+
+=head2 TRACES STARTING AT $LEVEL
+
+If a tracing tool starts at the call to the tool (such as C<Carp::confess()>)
+then it should account for all the masks starting with the call to confess
+itself going all the way until the bottom of the stack, or until a mask with
+'stop' is found. If a tracing tool allows you to start tracing from a specific
+level, the tracer should still account for the masks of the frames at the top
+of the stack on which it is not reporting.
+
+=head2 TODO: SHIFT MERGING
+
+=head2 TODO: STOP + HIDE
+
+=head2 TODO: STOP + SHIFT
+
+=head2 TODO: SHIFT, THEN STOP
+
+=head2 TODO: MASK NUMERIC KEYS
+
+Can replace a value directly, cannot do anything more. Cannot be used to add
+values to the caller details array, if the index does not already exist it is
+not changed (support for different perl versions this way)
 
 =head1 CLASS METHODS
 

@@ -3,15 +3,17 @@ use Trace::Mask;
 use Trace::Mask::Util qw/mask_frame/;
 
 use Trace::Mask::Reference qw{
-    trace trace_string get_call try_example
+    trace trace_string trace_mask_caller try_example
 };
 
 imported_ok qw{
-    trace trace_string get_call try_example
+    trace trace_string trace_mask_caller try_example
 };
 
 BEGIN {
-    *render_arg = Trace::Mask::Reference->can('render_arg');
+    *_do_shift     = Trace::Mask::Reference->can('_do_shift')     or die "no _do_shift";
+    *render_arg    = Trace::Mask::Reference->can('render_arg')    or die "no render_args";
+    *_call_details = Trace::Mask::Reference->can('_call_details') or die "no _call_details";
 }
 
 tests render_arg => sub {
@@ -35,8 +37,7 @@ tests render_arg => sub {
     );
 };
 
-sub do_trace { trace_string }
-
+sub do_trace { trace_string(1) }
 tests try_example => sub {
     is(try_example { die "xxx\n" }, "xxx\n", "got exception");
     is(try_example { 1 },           undef,   "No exception");
@@ -55,33 +56,60 @@ tests try_example => sub {
         || print STDERR $trace;
 };
 
+sub details { _call_details(@_) };
+tests _call_details => sub {
+    my $line = __LINE__ + 1;
+    my @details = details(0,1,2,3);
+    is(
+        [@{$details[0]}[0,1,2,3]],
+        [ __PACKAGE__, __FILE__, $line, 'main::details' ],
+        "Got first 4 details from caller"
+    );
+    is($details[1], [0,1,2,3], "got args for caller");
+
+    @details = details(10000);
+    ok(!@details, "no details for bad level");
+};
+
+tests _do_shift => sub {
+    my $shift = [
+        ['a1', 'b1', 1, 'foo1', 'x1', 'y1', 'z1'],
+        [qw/a b c/],
+        {hide => 1, 1 => 'a', 3 => 'x'},
+    ];
+    my $frame = [
+        ['a2', 'b2', 2, 'foo2', 'x2', 'y2', 'z2'],
+        [qw/x y z apple/],
+        {hide => 2, 2 => 'b', 3 => 'y'},
+    ];
+    _do_shift($shift, $frame);
+
+    is(
+        $frame,
+        [
+            ['a2', 'b2', 2, 'foo1', 'x1', 'y1', 'z1'],    # All but first 3 come from shift
+            [qw/a b c/],                                  # Directly from shift
+            {hide => 2, 1 => 'a', 2 => 'b', 3 => 'x'},    # merged, shift wins, but only for numerics.
+        ],
+        "Merged shift into frame"
+    );
+};
+
+describe trace => sub {
+
+
+};
+
+
 done_testing;
 
 __END__
 
-
-sub _call_details {
-    my ($level) = @_;
-    $level += 1;
-
-    my @call;
-    my @args;
-    {
-        package DB;
-        @call = caller($level);
-        @args = @DB::args;
-    }
-
-    return unless @call && defined $call[0];
-    return (\@call, \@args);
-}
-
 sub trace {
-    my ($level) = @_;
-    $level = 0 unless defined($level);
-    $level += 1;
-
     my @stack;
+
+    # Always have to start at 0 since frames can hide frames that come after them.
+    my $level = 0;
 
     # Shortcut
     if ($ENV{NO_TRACE_MASK}) {
@@ -109,46 +137,35 @@ sub trace {
             $shift = undef;
         }
 
-        unless ($skip || ($mask->{no_start} && !@stack)) {
-            for my $idx (grep { m/^\d+$/ } keys %$mask) {
-                next unless exists $mask->{$idx};
-                $call->[$idx] = $mask->{$idx};
-            }
-
-            push @stack => $frame;
+        # Need to do this even if the frame is not pushed now, it may be pushed
+        # later depending on shift.
+        for my $idx (keys %$mask) {
+            next unless $idx =~ m/^\d+$/;
+            next if $idx >= @$call;    # Do not create new call indexes
+            $call->[$idx] = $mask->{$idx};
         }
+
+        push @stack => $frame unless $skip || ($mask->{no_start} && !@stack);
 
         last if $mask->{stop};
     }
 
-    _do_shift($shift, $frame) if $shift;
+    if ($shift) {
+        _do_shift($shift, $frame);
+        push @stack => $frame unless @stack && $stack[-1] == $frame;
+    }
 
     return \@stack;
 }
 
-sub _do_shift {
-    my ($shift, $frame) = @_;
-
-    # Args are a direct move
-    $frame->[1] = $shift->[1];
-
-    # Merge the masks
-    $frame->[2] = { %{$frame->[2]}, %{$shift->[2]} };
-
-    # Copy all caller values from shift except 0-2
-    for(my $i = 3; $i < @{$shift->[0]}; $i++) {
-        $frame->[0]->[$i] = $shift->[0]->[$i];
-    }
-}
-
-sub get_call {
+sub trace_mask_caller {
     my ($level) = @_;
     $level = 0 unless defined($level);
 
-    my $trace = trace($level + 1);
+    my $trace = trace();
     return unless $trace && @$trace;
 
-    my $frame = $trace->[$level];
+    my $frame = $trace->[$level + 2];
     return unless $frame;
 
     return @{$frame->[0]}[0, 1, 2] unless @_;
@@ -158,7 +175,9 @@ sub get_call {
 sub trace_string {
     my ($level) = @_;
     $level = 0 unless defined($level);
-    my $trace  = trace($level + 1);
+    $level += 1;
+    my $trace = trace();
+    shift @$trace while @$trace && $level--;
     my $string = "";
     for my $frame (@$trace) {
         my ($call, $args) = @$frame;
@@ -195,3 +214,5 @@ sub render_arg {
     $arg =~ s/'/\\'/g;
     return "'$arg'";
 }
+
+
