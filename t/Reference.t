@@ -1,6 +1,12 @@
-use Test::Stream -V1, Spec, class => 'Trace::Mask::Reference';
+use Test::Stream -V1, Spec, class => 'Trace::Mask::Reference', Compare => '*';
 use Trace::Mask;
-use Trace::Mask::Util qw/mask_frame/;
+use Trace::Mask::Util qw/mask_frame mask_sub/;
+
+use Trace::Mask::Test qw{
+    test_stack_hide test_stack_shift test_stack_stop test_stack_no_start
+    test_stack_alter test_stack_shift_and_hide test_stack_shift_short
+    test_stack_hide_short test_stack_shift_and_alter test_stack_full_combo
+};
 
 use Trace::Mask::Reference qw{
     trace trace_string trace_mask_caller try_example
@@ -96,123 +102,497 @@ tests _do_shift => sub {
 };
 
 describe trace => sub {
+    tests hide => sub {
+        local $ENV{NO_TRACE_MASK} = 1;
+        my $trace = test_stack_hide(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_hide.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_hide.pl', 10, 'Trace::Mask::Test::hide_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_hide.pl', 9,  'Trace::Mask::Test::hide_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_hide.pl', 8,  'Trace::Mask::Test::hide_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_hide.pl', 7,  'Trace::Mask::Test::hide_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_hide.pl', 4,  'Trace::Mask::Test::hide_1'], ['a']],
+            ],
+            "Got all frames"
+        );
 
+        $ENV{NO_TRACE_MASK} = 0;
+        $trace = test_stack_hide(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_hide.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_hide.pl', 10, 'Trace::Mask::Test::hide_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_hide.pl', 9,  'Trace::Mask::Test::hide_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_hide.pl', 4,  'Trace::Mask::Test::hide_1'], ['a']],
+                DNE(),
+            ],
+            "Masked the calls to hide_2 and hide_3"
+        );
+    };
 
+    tests shift => sub {
+        local $ENV{NO_TRACE_MASK} = 1;
+        my $trace = test_stack_shift(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_shift.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_shift.pl', 10, 'Trace::Mask::Test::shift_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_shift.pl', 9,  'Trace::Mask::Test::shift_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_shift.pl', 8,  'Trace::Mask::Test::shift_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_shift.pl', 7,  'Trace::Mask::Test::shift_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_shift.pl', 4,  'Trace::Mask::Test::shift_1'], ['a']],
+            ],
+            "Got all frames"
+        );
+
+        $ENV{NO_TRACE_MASK} = 0;
+        $trace = test_stack_shift(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_shift.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_shift.pl', 10, 'Trace::Mask::Test::shift_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_shift.pl', 7,  'Trace::Mask::Test::shift_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_shift.pl', 4,  'Trace::Mask::Test::shift_1'], ['a']],
+                DNE(),
+            ],
+            "Hid the calls to shift_2 and shift_3, changed line for shift_4"
+        );
+    };
+
+    tests stop => sub {
+        local $ENV{NO_TRACE_MASK} = 1;
+        my $trace = test_stack_stop(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_stop.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_stop.pl', 10, 'Trace::Mask::Test::stop_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_stop.pl', 9,  'Trace::Mask::Test::stop_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_stop.pl', 8,  'Trace::Mask::Test::stop_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_stop.pl', 7,  'Trace::Mask::Test::stop_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_stop.pl', 4,  'Trace::Mask::Test::stop_1'], ['a']],
+            ],
+            "Got all frames"
+        );
+
+        $ENV{NO_TRACE_MASK} = 0;
+        $trace = test_stack_stop(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_stop.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_stop.pl', 10, 'Trace::Mask::Test::stop_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_stop.pl', 9,  'Trace::Mask::Test::stop_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_stop.pl', 8,  'Trace::Mask::Test::stop_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_stop.pl', 7,  'Trace::Mask::Test::stop_2'], ['b']],
+                DNE(),
+            ],
+            "Stoped at, but showed, stop_2"
+        );
+    };
+
+    tests no_start => sub {
+        local $ENV{NO_TRACE_MASK} = 1;
+        my $trace = test_stack_no_start(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 10, 'Trace::Mask::Test::no_start_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 9,  'Trace::Mask::Test::no_start_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 8,  'Trace::Mask::Test::no_start_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 7,  'Trace::Mask::Test::no_start_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 4,  'Trace::Mask::Test::no_start_1'], ['a']],
+            ],
+            "Got all frames"
+        );
+
+        $ENV{NO_TRACE_MASK} = 0;
+        $trace = test_stack_no_start(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 8,  'Trace::Mask::Test::no_start_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 7,  'Trace::Mask::Test::no_start_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 4,  'Trace::Mask::Test::no_start_1'], ['a']],
+                DNE(),
+            ],
+            "Started the trace at the call to no_start_3"
+        );
+
+        $ENV{NO_TRACE_MASK} = 1;
+        my $line = __LINE__ + 1;
+        $trace = test_stack_no_start(sub { trace() });
+        like(
+            $trace,
+            [
+                [[__PACKAGE__, __FILE__, $line, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 11, __PACKAGE__ . '::__ANON__'], []],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 10, 'Trace::Mask::Test::no_start_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 9,  'Trace::Mask::Test::no_start_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 8,  'Trace::Mask::Test::no_start_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 7,  'Trace::Mask::Test::no_start_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 4,  'Trace::Mask::Test::no_start_1'], ['a']],
+            ],
+            "Got all frames"
+        );
+
+        $ENV{NO_TRACE_MASK} = 0;
+        $line = __LINE__ + 1;
+        $trace = test_stack_no_start(sub { trace() });
+        like(
+            $trace,
+            [
+                [[__PACKAGE__, __FILE__, $line, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 11, __PACKAGE__ . '::__ANON__'], []],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 10, 'Trace::Mask::Test::no_start_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 9,  'Trace::Mask::Test::no_start_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 8,  'Trace::Mask::Test::no_start_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 7,  'Trace::Mask::Test::no_start_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_no_start.pl', 4,  'Trace::Mask::Test::no_start_1'], ['a']],
+                DNE(),
+            ],
+            "Did not hide the no_starts when they are not the start"
+        );
+    };
+
+    tests alter => sub {
+        local $ENV{NO_TRACE_MASK} = 1;
+        my $trace = test_stack_alter(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_alter.pl', 22, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_alter.pl', 20, 'Trace::Mask::Test::alter_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_alter.pl', 9,  'Trace::Mask::Test::alter_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_alter.pl', 8,  'Trace::Mask::Test::alter_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_alter.pl', 7,  'Trace::Mask::Test::alter_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_alter.pl', 4,  'Trace::Mask::Test::alter_1'], ['a']],
+            ],
+            "Got all frames"
+        );
+
+        $ENV{NO_TRACE_MASK} = 0;
+        $trace = test_stack_alter(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_alter.pl', 22, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_alter.pl', 20, 'Trace::Mask::Test::alter_5'], ['e']],
+                [['Foo::Bar', 'Foo/Bar.pm', 42,  'Foo::Bar::foobar'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_alter.pl', 8,  'Trace::Mask::Test::alter_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_alter.pl', 7,  'Trace::Mask::Test::alter_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_alter.pl', 4,  'Trace::Mask::Test::alter_1'], ['a']],
+                DNE(),
+            ],
+            "Stoped at, but showed, alter_2"
+        );
+        my $altered = $trace->[2]->[0];
+        ok(@$altered > 3, "Sane number of items");
+        ok(@$altered < 900, "Did not add to args");
+    };
+
+    tests shift_and_hide => sub {
+        local $ENV{NO_TRACE_MASK} = 1;
+        my $trace = test_stack_shift_and_hide(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_s_and_h.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_s_and_h.pl', 10, 'Trace::Mask::Test::s_and_h_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_s_and_h.pl', 9,  'Trace::Mask::Test::s_and_h_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_s_and_h.pl', 8,  'Trace::Mask::Test::s_and_h_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_s_and_h.pl', 7,  'Trace::Mask::Test::s_and_h_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_s_and_h.pl', 4,  'Trace::Mask::Test::s_and_h_1'], ['a']],
+            ],
+            "Got all frames"
+        );
+
+        $ENV{NO_TRACE_MASK} = 0;
+        $trace = test_stack_shift_and_hide(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_s_and_h.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_s_and_h.pl', 10, 'Trace::Mask::Test::s_and_h_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_s_and_h.pl', 7,  'Trace::Mask::Test::s_and_h_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_s_and_h.pl', 4,  'Trace::Mask::Test::s_and_h_1'], ['a']],
+                DNE(),
+            ],
+            "Shifted to a hide, so effectively a shift => 2"
+        );
+    };
+
+    tests shift_short => sub {
+        local $ENV{NO_TRACE_MASK} = 1;
+        my $trace = test_stack_shift_short(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_shift_short.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_shift_short.pl', 10, 'Trace::Mask::Test::shift_short_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_shift_short.pl', 9,  'Trace::Mask::Test::shift_short_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_shift_short.pl', 8,  'Trace::Mask::Test::shift_short_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_shift_short.pl', 7,  'Trace::Mask::Test::shift_short_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_shift_short.pl', 4,  'Trace::Mask::Test::shift_short_1'], ['a']],
+            ],
+            "Got all frames"
+        );
+
+        $ENV{NO_TRACE_MASK} = 0;
+        $trace = test_stack_shift_short(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_shift_short.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_shift_short.pl', 10, 'Trace::Mask::Test::shift_short_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_shift_short.pl', 4,  'Trace::Mask::Test::shift_short_4'], ['d']],
+
+                DNE(),
+            ],
+            "Shifted to the bottom, then ran out"
+        );
+    };
+
+    tests hide_short => sub {
+        local $ENV{NO_TRACE_MASK} = 1;
+        my $trace = test_stack_hide_short(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_hide_short.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_hide_short.pl', 10, 'Trace::Mask::Test::hide_short_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_hide_short.pl', 9,  'Trace::Mask::Test::hide_short_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_hide_short.pl', 8,  'Trace::Mask::Test::hide_short_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_hide_short.pl', 7,  'Trace::Mask::Test::hide_short_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_hide_short.pl', 4,  'Trace::Mask::Test::hide_short_1'], ['a']],
+            ],
+            "Got all frames"
+        );
+
+        $ENV{NO_TRACE_MASK} = 0;
+        $trace = test_stack_hide_short(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_hide_short.pl', 11, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_hide_short.pl', 10, 'Trace::Mask::Test::hide_short_5'], ['e']],
+                DNE(),
+            ],
+            "hid to the bottom, then ran out"
+        );
+    };
+
+    tests shift_and_alter => sub {
+        local $ENV{NO_TRACE_MASK} = 1;
+        my $trace = test_stack_shift_and_alter(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 21, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 19, 'Trace::Mask::Test::s_and_a_5'], ['e']],
+                [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 13, 'Trace::Mask::Test::s_and_a_4'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 8,  'Trace::Mask::Test::s_and_a_3'], ['c']],
+                [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 7,  'Trace::Mask::Test::s_and_a_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 4,  'Trace::Mask::Test::s_and_a_1'], ['a']],
+            ],
+            "Got all frames"
+        );
+
+        $ENV{NO_TRACE_MASK} = 0;
+        $trace = test_stack_shift_and_alter(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 21, 'Trace::Mask::Reference::trace'], []],
+                [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 19, 'Trace::Mask::Test::s_and_a_5'],  ['e']],
+                [['x', 'x', 'x', 'y', 'y'], ['d']],
+                [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 7, 'Trace::Mask::Test::s_and_a_2'], ['b']],
+                [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 4, 'Trace::Mask::Test::s_and_a_1'], ['a']],
+                DNE(),
+            ],
+            "Shifted all caller details except the first 3"
+        );
+    };
+
+    tests test_stack_full_combo => sub {
+        local $ENV{NO_TRACE_MASK} = 1;
+        my $trace = test_stack_full_combo(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 26, 'Trace::Mask::Reference::trace',],    []],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 25, 'Trace::Mask::Test::full_combo_20',], ['t']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 24, 'Trace::Mask::Test::full_combo_19',], ['s']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 23, 'Trace::Mask::Test::full_combo_18',], ['r']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 22, 'Trace::Mask::Test::full_combo_17',], ['q']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 21, 'Trace::Mask::Test::full_combo_16',], ['p']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 20, 'Trace::Mask::Test::full_combo_15',], ['o']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 19, 'Trace::Mask::Test::full_combo_14',], ['n']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 18, 'Trace::Mask::Test::full_combo_13',], ['m']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 17, 'Trace::Mask::Test::full_combo_12',], ['l']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 16, 'Trace::Mask::Test::full_combo_11',], ['k']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 15, 'Trace::Mask::Test::full_combo_10',], ['j']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 14, 'Trace::Mask::Test::full_combo_9',],  ['i']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 13, 'Trace::Mask::Test::full_combo_8',],  ['h']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 12, 'Trace::Mask::Test::full_combo_7',],  ['g']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 11, 'Trace::Mask::Test::full_combo_6',],  ['f']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 10, 'Trace::Mask::Test::full_combo_5',],  ['e']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 9,  'Trace::Mask::Test::full_combo_4',],  ['d']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 8,  'Trace::Mask::Test::full_combo_3',],  ['c']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 7,  'Trace::Mask::Test::full_combo_2',],  ['b']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 4,  'Trace::Mask::Test::full_combo_1',],  ['a']],
+            ],
+            "Got all frames"
+        );
+
+        $ENV{NO_TRACE_MASK} = 0;
+        $trace = test_stack_full_combo(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 24, 'Trace::Mask::Test::full_combo_19',], ['s']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 23, 'Trace::Mask::Test::full_combo_18',], ['r']],
+                [['foo', 'mask_test_full_combo.pl', 18, 'Trace::Mask::Test::full_combo_17', sub{1}, 'bar'], ['q']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 17, 'Trace::Mask::Test::full_combo_12',], ['l']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 16, 'Trace::Mask::Test::full_combo_11',], ['k']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 15, 'Trace::Mask::Test::full_combo_10',], ['j']],
+                [['xxx', 'mask_test_full_combo.pl', 14, 'Trace::Mask::Test::full_combo_9',],  ['i']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 13, 'Trace::Mask::Test::full_combo_8',],  ['h']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 12, 'Trace::Mask::Test::full_combo_7',],  ['g']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 11, 'Trace::Mask::Test::full_combo_6',],  ['f']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 10, 'Trace::Mask::Test::full_combo_5',],  ['e']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 9,  'Trace::Mask::Test::full_combo_4',],  ['d']],
+                DNE(),
+            ],
+            "Combination stack looks right"
+        );
+    };
 };
 
+tests trace_string => sub {
+    local $ENV{NO_TRACE_MASK};
+    my $trace = test_stack_full_combo(\&trace_string);
+    is($trace, <<'    EOT', "Got trace");
+Trace::Mask::Test::full_combo_19('s') called at mask_test_full_combo.pl line 24
+Trace::Mask::Test::full_combo_18('r') called at mask_test_full_combo.pl line 23
+Trace::Mask::Test::full_combo_17('q') called at mask_test_full_combo.pl line 18
+Trace::Mask::Test::full_combo_12('l') called at mask_test_full_combo.pl line 17
+Trace::Mask::Test::full_combo_11('k') called at mask_test_full_combo.pl line 16
+Trace::Mask::Test::full_combo_10('j') called at mask_test_full_combo.pl line 15
+Trace::Mask::Test::full_combo_9('i') called at mask_test_full_combo.pl line 14
+Trace::Mask::Test::full_combo_8('h') called at mask_test_full_combo.pl line 13
+Trace::Mask::Test::full_combo_7('g') called at mask_test_full_combo.pl line 12
+Trace::Mask::Test::full_combo_6('f') called at mask_test_full_combo.pl line 11
+Trace::Mask::Test::full_combo_5('e') called at mask_test_full_combo.pl line 10
+Trace::Mask::Test::full_combo_4('d') called at mask_test_full_combo.pl line 9
+    EOT
+
+    my $file = __FILE__;
+    mask_frame(stop => 1, hide => 1);
+    my $x = sub { trace_string()  };            my $line1 = __LINE__;
+    my $y = sub { eval { $x->() } || die $@ };  my $line2 = __LINE__;
+
+    my $trace = $y->(); my $line3 = __LINE__;
+    is($trace, <<"    EOT", "Got trace with eval");
+Trace::Mask::Reference::trace_string() called at $file line $line1
+main::__ANON__() called at $file line $line2
+eval { ... } called at $file line $line2
+main::__ANON__() called at $file line $line3
+    EOT
+};
+
+sub my_call { trace_mask_caller(@_) }
+sub my_wrap { my_call(@_)           }
+tests trace_string => sub {
+    local $ENV{NO_TRACE_MASK};
+
+    my @call = my_call();
+    is(\@call, [__PACKAGE__, __FILE__, __LINE__ - 1], "got immediate caller" );
+
+    @call = my_call(0);
+    like(\@call, [__PACKAGE__, __FILE__, __LINE__ - 1, 'main::my_call'], "got immediate caller + details" );
+    ok(@call > 3, "got extra fields");
+
+    @call = my_wrap(1);
+    like(\@call, [__PACKAGE__, __FILE__, __LINE__ - 1, 'main::my_wrap'], "got level 1 caller" );
+
+    like(
+        [test_stack_full_combo(sub { trace_mask_caller(2) })],
+        ['Trace::Mask::Test', 'mask_test_full_combo.pl', 24, 'Trace::Mask::Test::full_combo_19'],
+        "Got call details 2",
+    );
+
+    like(
+        [test_stack_full_combo(sub { trace_mask_caller(3) })],
+        ['Trace::Mask::Test', 'mask_test_full_combo.pl', 23, 'Trace::Mask::Test::full_combo_18'],
+        "Got call details 3",
+    );
+
+    like(
+        [test_stack_full_combo(sub { trace_mask_caller(4) })],
+        ['foo', 'mask_test_full_combo.pl', 18, 'Trace::Mask::Test::full_combo_17', sub{1}, 'bar'],
+        "Got call details 4",
+    );
+
+    like(
+        [test_stack_full_combo(sub { trace_mask_caller(5) })],
+        ['Trace::Mask::Test', 'mask_test_full_combo.pl', 17, 'Trace::Mask::Test::full_combo_12'],
+        "Got call details 5",
+    );
+
+    like(
+        [test_stack_full_combo(sub { trace_mask_caller(6) })],
+        ['Trace::Mask::Test', 'mask_test_full_combo.pl', 16, 'Trace::Mask::Test::full_combo_11'],
+        "Got call details 6",
+    );
+
+    like(
+        [test_stack_full_combo(sub { trace_mask_caller(7) })],
+        ['Trace::Mask::Test', 'mask_test_full_combo.pl', 15, 'Trace::Mask::Test::full_combo_10'],
+        "Got call details 7",
+    );
+
+    like(
+        [test_stack_full_combo(sub { trace_mask_caller(8) })],
+        ['xxx', 'mask_test_full_combo.pl', 14, 'Trace::Mask::Test::full_combo_9'],
+        "Got call details 8",
+    );
+
+    like(
+        [test_stack_full_combo(sub { trace_mask_caller(9) })],
+        ['Trace::Mask::Test', 'mask_test_full_combo.pl', 13, 'Trace::Mask::Test::full_combo_8'],
+        "Got call details 9",
+    );
+
+    like(
+        [test_stack_full_combo(sub { trace_mask_caller(10) })],
+        ['Trace::Mask::Test', 'mask_test_full_combo.pl', 12, 'Trace::Mask::Test::full_combo_7'],
+        "Got call details 10",
+    );
+
+    like(
+        [test_stack_full_combo(sub { trace_mask_caller(11) })],
+        ['Trace::Mask::Test', 'mask_test_full_combo.pl', 11, 'Trace::Mask::Test::full_combo_6'],
+        "Got call details 11",
+    );
+
+    like(
+        [test_stack_full_combo(sub { trace_mask_caller(12) })],
+        ['Trace::Mask::Test', 'mask_test_full_combo.pl', 10, 'Trace::Mask::Test::full_combo_5'],
+        "Got call details 12",
+    );
+
+    like(
+        [test_stack_full_combo(sub { trace_mask_caller(13) })],
+        ['Trace::Mask::Test', 'mask_test_full_combo.pl', 9,  'Trace::Mask::Test::full_combo_4'],
+        "Got call details 13",
+    );
+};
 
 done_testing;
-
-__END__
-
-sub trace {
-    my @stack;
-
-    # Always have to start at 0 since frames can hide frames that come after them.
-    my $level = 0;
-
-    # Shortcut
-    if ($ENV{NO_TRACE_MASK}) {
-        while (my ($call, $args) = _call_details($level++)) {
-            push @stack => [$call, $args];
-        }
-        return @stack;
-    }
-
-    my ($shift, $frame);
-    my $skip = 0;
-    while (my ($call, $args) = _call_details($level++)) {
-        my $mask = get_mask(@{$call}[1,2,3]);
-        $frame = [$call, $args, $mask];
-
-        if ($mask->{shift}) {
-            $shift ||= $frame;
-            $skip   += $mask->{shift};
-        }
-        elsif ($mask->{hide}) {
-            $skip += $mask->{hide};
-        }
-        elsif($skip && !(--$skip) && $shift) {
-            _do_shift($shift, $frame);
-            $shift = undef;
-        }
-
-        # Need to do this even if the frame is not pushed now, it may be pushed
-        # later depending on shift.
-        for my $idx (keys %$mask) {
-            next unless $idx =~ m/^\d+$/;
-            next if $idx >= @$call;    # Do not create new call indexes
-            $call->[$idx] = $mask->{$idx};
-        }
-
-        push @stack => $frame unless $skip || ($mask->{no_start} && !@stack);
-
-        last if $mask->{stop};
-    }
-
-    if ($shift) {
-        _do_shift($shift, $frame);
-        push @stack => $frame unless @stack && $stack[-1] == $frame;
-    }
-
-    return \@stack;
-}
-
-sub trace_mask_caller {
-    my ($level) = @_;
-    $level = 0 unless defined($level);
-
-    my $trace = trace();
-    return unless $trace && @$trace;
-
-    my $frame = $trace->[$level + 2];
-    return unless $frame;
-
-    return @{$frame->[0]}[0, 1, 2] unless @_;
-    return @{$frame->[0]};
-}
-
-sub trace_string {
-    my ($level) = @_;
-    $level = 0 unless defined($level);
-    $level += 1;
-    my $trace = trace();
-    shift @$trace while @$trace && $level--;
-    my $string = "";
-    for my $frame (@$trace) {
-        my ($call, $args) = @$frame;
-        my $args_str = join ", " => map { render_arg($_) } @$args;
-        $args_str ||= '';
-        if ($call->[3] eq '(eval)') {
-            $string .= "eval { ... } called at $call->[1] line $call->[2]\n";
-        }
-        else {
-            $string .= "$call->[3]($args_str) called at $call->[1] line $call->[2]\n";
-        }
-    }
-
-    return $string;
-}
-
-sub render_arg {
-    my $arg = shift;
-    return 'undef' unless defined($arg);
-
-    if (ref($arg)) {
-        my $type = reftype($arg);
-
-        # Look past overloading
-        my $class = blessed($arg) || '';
-        my $it = sprintf('0x%x', refaddr($arg));
-        my $ref = "$type($it)";
-
-        return $ref unless $class;
-        return "$class=$ref";
-    }
-
-    return $arg if looks_like_number($arg);
-    $arg =~ s/'/\\'/g;
-    return "'$arg'";
-}
-
-

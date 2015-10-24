@@ -8,7 +8,7 @@ use Scalar::Util qw/reftype looks_like_number refaddr blessed/;
 
 use Trace::Mask::Util qw/mask_frame mask_line get_mask/;
 
-use Exporter qw/import/;
+use base 'Exporter';
 our @EXPORT_OK = qw{
     trace
     trace_string
@@ -76,26 +76,15 @@ sub trace {
         while (my ($call, $args) = _call_details($level++)) {
             push @stack => [$call, $args];
         }
-        return @stack;
+        return \@stack;
     }
 
-    my ($shift, $frame);
+    my ($shift, $last);
     my $skip = 0;
     while (my ($call, $args) = _call_details($level++)) {
         my $mask = get_mask(@{$call}[1,2,3]);
-        $frame = [$call, $args, $mask];
-
-        if ($mask->{shift}) {
-            $shift ||= $frame;
-            $skip   += $mask->{shift};
-        }
-        elsif ($mask->{hide}) {
-            $skip += $mask->{hide};
-        }
-        elsif($skip && !(--$skip) && $shift) {
-            _do_shift($shift, $frame);
-            $shift = undef;
-        }
+        my $frame = [$call, $args, $mask];
+        $last = $frame unless $mask->{hide} || $mask->{shift};
 
         # Need to do this even if the frame is not pushed now, it may be pushed
         # later depending on shift.
@@ -105,14 +94,26 @@ sub trace {
             $call->[$idx] = $mask->{$idx};
         }
 
+        if ($mask->{shift}) {
+            $shift ||= $frame;
+            $skip  = $skip ? $skip + $mask->{shift} - 1 : $mask->{shift};
+        }
+        elsif ($mask->{hide}) {
+            $skip  = $skip ? $skip + $mask->{hide} - 1 : $mask->{hide};
+        }
+        elsif($skip && !(--$skip) && $shift) {
+            _do_shift($shift, $frame);
+            $shift = undef;
+        }
+
         push @stack => $frame unless $skip || ($mask->{no_start} && !@stack);
 
         last if $mask->{stop};
     }
 
     if ($shift) {
-        _do_shift($shift, $frame);
-        push @stack => $frame unless @stack && $stack[-1] == $frame;
+        _do_shift($shift, $last);
+        push @stack => $last unless @stack && $stack[-1] == $last;
     }
 
     return \@stack;
@@ -135,8 +136,10 @@ sub trace_mask_caller {
 sub trace_string {
     my ($level) = @_;
     $level = 0 unless defined($level);
-    $level += 1;
+
+    BEGIN { mask_line({hide => 1}, 1) };
     my $trace = trace();
+
     shift @$trace while @$trace && $level--;
     my $string = "";
     for my $frame (@$trace) {

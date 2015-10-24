@@ -166,7 +166,10 @@ The following additional behaviors may be specified:
 
     This is like hide with one important difference, all components of the shifted
     call, except for package, file, and line, will replace the values of the next
-    frame to be kept in the trace.
+    frame to be kept in the trace. If `$COUNT` is large than 1, the shift will
+    hide frames between the shifted frame and the new frame. If `$COUNT` is larger
+    than the remaining stack, the lowest unhidden/unshifted stack frame will be the
+    recipient of the shift operation, even if the shift frame itself is the lowest.
 
     This has the same effect on a stack trace as `goto &sub`.
 
@@ -198,6 +201,25 @@ Paths may never have wildcards for all 3 components.
 If this environment variable is set to true then all masking rules should be
 ignored, tracers should produce full and complete stack traces.
 
+## TRACES STARTING AT $LEVEL
+
+If a tracing tool starts at the call to the tool (such as `Carp::confess()`)
+then it should account for all the masks starting with the call to confess
+itself going all the way until the bottom of the stack, or until a mask with
+'stop' is found. If a tracing tool allows you to start tracing from a specific
+level, the tracer should still account for the masks of the frames at the top
+of the stack on which it is not reporting.
+
+## MASK NUMERIC KEYS
+
+Numeric keys in a mask represent items in the list returned from `caller()`.
+If you provide numeric keys their values will replace the corresponding value
+in the caller list before it is used in the trace. You can use this to replace
+the package, file, etc. This will work for any VALID index into the list. This
+cannot be used to extend the list. Numeric keys outside the bounds of the list
+are simply ignored, this is for compatability as different perl versions may
+have a different size list.
+
 # CLASS METHODS
 
 The `masks()` method is defined in [Trace::Mask](https://metacpan.org/pod/Trace::Mask), it returns a reference to
@@ -216,6 +238,12 @@ code.
 [Trace::Mask::Util](https://metacpan.org/pod/Trace::Mask::Util) is included in this distribution. The util module provides
 utilities for adding stack trace masking behavior. The utilities provided by
 this module are considered usable in production code.
+
+# TEST
+
+[Trace::Mask::Test](https://metacpan.org/pod/Trace::Mask::Test) is included in this distribution. This module provides
+test cases and tools useful for verifying your tracing tools are compliant with
+the spec.
 
 # SEE ALSO
 

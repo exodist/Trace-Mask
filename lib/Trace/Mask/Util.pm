@@ -9,7 +9,7 @@ use B;
 
 our $VERSION = "0.000001";
 
-use Exporter qw/import/;
+use base 'Exporter';
 our @EXPORT_OK = qw{
     update_mask
     validate_mask

@@ -188,8 +188,8 @@ This is like hide with one important difference, all components of the shifted
 call, except for package, file, and line, will replace the values of the next
 frame to be kept in the trace. If C<$COUNT> is large than 1, the shift will
 hide frames between the shifted frame and the new frame. If C<$COUNT> is larger
-than the remaining stack, the lowest stack frame will be the recipient of the
-shift operation, even if the shift frame itself is the lowest.
+than the remaining stack, the lowest unhidden/unshifted stack frame will be the
+recipient of the shift operation, even if the shift frame itself is the lowest.
 
 This has the same effect on a stack trace as C<goto &sub>.
 
@@ -232,19 +232,15 @@ itself going all the way until the bottom of the stack, or until a mask with
 level, the tracer should still account for the masks of the frames at the top
 of the stack on which it is not reporting.
 
-=head2 TODO: SHIFT MERGING
+=head2 MASK NUMERIC KEYS
 
-=head2 TODO: STOP + HIDE
-
-=head2 TODO: STOP + SHIFT
-
-=head2 TODO: SHIFT, THEN STOP
-
-=head2 TODO: MASK NUMERIC KEYS
-
-Can replace a value directly, cannot do anything more. Cannot be used to add
-values to the caller details array, if the index does not already exist it is
-not changed (support for different perl versions this way)
+Numeric keys in a mask represent items in the list returned from C<caller()>.
+If you provide numeric keys their values will replace the corresponding value
+in the caller list before it is used in the trace. You can use this to replace
+the package, file, etc. This will work for any VALID index into the list. This
+cannot be used to extend the list. Numeric keys outside the bounds of the list
+are simply ignored, this is for compatability as different perl versions may
+have a different size list.
 
 =head1 CLASS METHODS
 
@@ -264,6 +260,12 @@ code.
 L<Trace::Mask::Util> is included in this distribution. The util module provides
 utilities for adding stack trace masking behavior. The utilities provided by
 this module are considered usable in production code.
+
+=head1 TEST
+
+L<Trace::Mask::Test> is included in this distribution. This module provides
+test cases and tools useful for verifying your tracing tools are compliant with
+the spec.
 
 =head1 SEE ALSO
 
