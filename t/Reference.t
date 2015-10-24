@@ -498,7 +498,7 @@ Trace::Mask::Test::full_combo_4('d') called at mask_test_full_combo.pl line 9
     my $x = sub { trace_string()  };            my $line1 = __LINE__;
     my $y = sub { eval { $x->() } || die $@ };  my $line2 = __LINE__;
 
-    my $trace = $y->(); my $line3 = __LINE__;
+    $trace = $y->(); my $line3 = __LINE__;
     is($trace, <<"    EOT", "Got trace with eval");
 Trace::Mask::Reference::trace_string() called at $file line $line1
 main::__ANON__() called at $file line $line2
