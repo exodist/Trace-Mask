@@ -19,8 +19,9 @@ my $ran = 0;
 tests carp_replacements => sub {
     local $ENV{'NO_TRACE_MASK'};
 
-    my @out = test_tracer(
+    test_tracer(
         name    => 'longmess',
+        type    => 'return',
         trace   => \&longmess,
         convert => sub {
             my $trace = shift;
@@ -37,8 +38,9 @@ tests carp_replacements => sub {
         },
     );
 
-    @out = test_tracer(
+    test_tracer(
         name    => 'confess',
+        type    => 'exception',
         trace   => \&confess,
         convert => sub {
             my $trace = shift;
@@ -55,8 +57,9 @@ tests carp_replacements => sub {
         },
     );
 
-    @out = test_tracer(
+    test_tracer(
         name    => 'cluck',
+        type    => 'warning',
         trace   => \&cluck,
         convert => sub {
             my $trace = shift;
@@ -135,8 +138,9 @@ tests global_handlers => sub {
 
     $CLASS->import('-global');
 
-    my @out = test_tracer(
+    test_tracer(
         name    => 'confess',
+        type    => 'exception',
         trace   => \&Carp::confess,
         convert => sub {
             my $trace = shift;
@@ -153,7 +157,25 @@ tests global_handlers => sub {
         },
     );
 
-    # Cannot test the global warning handler..
+    test_tracer(
+        name    => 'cluck',
+        type    => 'sigwarn',
+        trace   => \&Carp::cluck,
+        convert => sub {
+            my $trace = shift;
+            my @stack;
+
+            for my $line (split /[\n\r]+/, $trace) {
+                my $info = parse_carp_line($line);
+                my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
+                my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                push @stack => [$call, $args];
+            }
+
+            return \@stack;
+        },
+    );
+
 };
 
 

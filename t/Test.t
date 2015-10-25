@@ -3,9 +3,7 @@ use Test::Stream -V1;
 use Trace::Mask::Test;
 use Trace::Mask::Reference qw/trace/;
 
-
 ref_ok(NA(), 'CODE', "NA gives us a coderef");
-is(NA()->(), 1, "NA sub returns true");
 
 test_tracer(
     trace => \&trace,
