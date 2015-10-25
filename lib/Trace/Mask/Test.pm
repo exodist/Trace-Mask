@@ -2,7 +2,7 @@ package Trace::Mask::Test;
 use strict;
 use warnings;
 
-use Trace::Mask::Util qw/mask_frame mask_call/;
+use Trace::Mask::Util qw/mask_frame mask_line/;
 use Trace::Mask::Reference qw/trace/;
 
 use Carp qw/croak/;
@@ -17,7 +17,27 @@ our @EXPORT_OK = qw{
     test_stack_hide_short test_stack_shift_and_alter test_stack_full_combo
 };
 
-sub NA() { sub() { 1 } }
+sub NA() { \&NA }
+
+sub do_call {
+    my ($code) = @_;
+
+    local $@;
+
+    my $warning;
+    local $SIG{__WARN__} = sub { $warning = shift };
+    my $out;
+    my $ok = eval {
+        BEGIN { mask_line({hide => 3}, 1) };
+        $out = $code->();
+        1;
+    };
+    my $error = $@;
+
+    return $warning if $warning;
+    return $out if $ok;
+    return $error;
+}
 
 sub test_tracer {
     my %params = @_;
@@ -36,8 +56,8 @@ sub test_tracer {
         my @bad;
 
         for my $test (keys %params) {
-            my $sub = $params{$test};
-            $sub = __PACKAGE__->can($sub) if !ref($sub) && $sub =~ m/^test_/ && $sub !~ m/test_tracer/;
+            my $sub;
+            $sub = __PACKAGE__->can($test) if !ref($test) && $test =~ m/^test_/ && $test !~ m/test_tracer/;
             if($sub && ref($sub) && reftype($sub) eq 'CODE') {
                 $tests{$test} = $sub;
             }
@@ -67,22 +87,39 @@ sub test_tracer {
     my $results = {};
     my $expects = {};
     my $ok;
+    my $sig_die = $SIG{__DIE__};
 
     Test::Stream::Plugin::Subtest::subtest_buffered($name => sub {
+        local $SIG{__DIE__} = $sig_die;
         my $sctx = Test::Stream::Context::context();
         $sctx->set_debug($ctx->debug);
         for my $test (sort keys %tests) {
             my $sub = $tests{$test};
-            my $result = $convert->(scalar $sub->($trace));
-            my $expect = $sub->(scalar \&trace);
+            my $result;
+            $result = $sub->($trace) or die "Did not get a trace!\n";
+            $result = $convert->($result);
+            my $expect = $sub->(\&trace);
 
             $results->{$test} = $result;
             $expects->{$test} = $expect;
 
             my $size = min(scalar(@$result), scalar(@$expect));
-            for(my $i = 0; $i < $size; $i++) {
-                for my $j (0, 1) {
-                    delete $expect->[$i]->[$j] unless exists $result->[$i]->[$j];
+            for(my $i = 0; $i < $size; $i++) { # Frame
+                delete $expect->[$i]->[2]; # Remove the mask
+
+                # Args may not be available
+                unless ($result->[$i]->[1] && @{$result->[$i]->[1]}) {
+                    delete $expect->[$i]->[1];
+                    delete $result->[$i]->[1];
+                }
+
+                for (my $j = @{$expect->[$i]->[0]} - 1; $j >= 0; $j--) {
+                    if (exists $result->[$i]->[0]->[$j]) {
+                        $expect->[$i]->[0]->[$j] = sub { 1 } if ref($result->[$i]->[0]->[$j]) && $result->[$i]->[0]->[$j] == \&NA;
+                    }
+                    else {
+                        pop @{$expect->[$i]->[0]};
+                    }
                 }
             }
 
@@ -112,7 +149,7 @@ sub hide_1 { my $code = shift; @_ = (@_); hide_2($code, 'b') }    # line 7
 sub hide_2 { my $code = shift; @_ = (@_); hide_3($code, 'c') }    # line 8
 sub hide_3 { my $code = shift; @_ = (@_); mask_frame(hide => 2); hide_4($code, 'd') }    # line 9
 sub hide_4 { my $code = shift; @_ = (@_); hide_5($code, 'e') }    # line 10
-sub hide_5 { my $code = shift; @_ = (@_); $code->() }             # line 11
+sub hide_5 { my $code = shift; @_ = (@_); do_call($code) }             # line 11
 
 
 
@@ -128,7 +165,7 @@ sub shift_1 { my $code = shift; @_ = (@_); shift_2($code, 'b') }    # line 7
 sub shift_2 { my $code = shift; @_ = (@_); shift_3($code, 'c') }    # line 8
 sub shift_3 { my $code = shift; @_ = (@_); shift_4($code, 'd') }    # line 9
 sub shift_4 { my $code = shift; @_ = (@_); mask_frame(shift => 2); shift_5($code, 'e') }    # line 10
-sub shift_5 { my $code = shift; @_ = (@_); $code->() }              # line 11
+sub shift_5 { my $code = shift; @_ = (@_); do_call($code) }              # line 11
 
 
 
@@ -144,7 +181,7 @@ sub stop_1 { my $code = shift; @_ = (@_); stop_2($code, 'b') }    # line 7
 sub stop_2 { my $code = shift; @_ = (@_); mask_frame(stop => 1); stop_3($code, 'c') }    # line 8
 sub stop_3 { my $code = shift; @_ = (@_); stop_4($code, 'd') }    # line 9
 sub stop_4 { my $code = shift; @_ = (@_); stop_5($code, 'e') }    # line 10
-sub stop_5 { my $code = shift; @_ = (@_); $code->() }             # line 11
+sub stop_5 { my $code = shift; @_ = (@_); do_call($code) }             # line 11
 
 
 
@@ -160,7 +197,7 @@ sub no_start_1 { my $code = shift; @_ = (@_); no_start_2($code, 'b') }    # line
 sub no_start_2 { my $code = shift; @_ = (@_); no_start_3($code, 'c') }    # line 8
 sub no_start_3 { my $code = shift; @_ = (@_); no_start_4($code, 'd') }    # line 9
 sub no_start_4 { my $code = shift; @_ = (@_); mask_frame(no_start => 1); no_start_5($code, 'e') }    # line 10
-sub no_start_5 { my $code = shift; @_ = (@_); mask_frame(no_start => 1); mask_call({no_start => 1}, $code) }    # line 11
+sub no_start_5 { my $code = shift; @_ = (@_); mask_frame(no_start => 1); do_call($code) }    # line 11
 
 
 
@@ -187,7 +224,7 @@ sub alter_4 {                                                       # line 10
     );                                                              # line 19
     alter_5($code, 'e')                                             # line 20
 }                                                                   # line 21
-sub alter_5 { my $code = shift; @_ = (@_); $code->() }              # line 22
+sub alter_5 { my $code = shift; @_ = (@_); do_call($code) }              # line 22
 
 
 
@@ -203,7 +240,7 @@ sub s_and_h_1 { my $code = shift; @_ = (@_); s_and_h_2($code, 'b') }    # line 7
 sub s_and_h_2 { my $code = shift; @_ = (@_); s_and_h_3($code, 'c') }    # line 8
 sub s_and_h_3 { my $code = shift; @_ = (@_); mask_frame(hide  => 1); s_and_h_4($code, 'd') }   # line 9
 sub s_and_h_4 { my $code = shift; @_ = (@_); mask_frame(shift => 1); s_and_h_5($code, 'e') }   # line 10
-sub s_and_h_5 { my $code = shift; @_ = (@_); $code->() }                                       # line 11
+sub s_and_h_5 { my $code = shift; @_ = (@_); do_call($code) }                                  # line 11
 
 
 
@@ -219,7 +256,7 @@ sub shift_short_1 { my $code = shift; @_ = (@_); shift_short_2($code, 'b') }    
 sub shift_short_2 { my $code = shift; @_ = (@_); shift_short_3($code, 'c') }    # line 8
 sub shift_short_3 { my $code = shift; @_ = (@_); shift_short_4($code, 'd') }    # line 9
 sub shift_short_4 { my $code = shift; @_ = (@_); mask_frame(shift => 5); shift_short_5($code, 'e') }    # line 10
-sub shift_short_5 { my $code = shift; @_ = (@_); $code->() }                                            # line 11
+sub shift_short_5 { my $code = shift; @_ = (@_); do_call($code) }                                       # line 11
 
 
 
@@ -235,7 +272,7 @@ sub hide_short_1 { my $code = shift; @_ = (@_); hide_short_2($code, 'b') }    # 
 sub hide_short_2 { my $code = shift; @_ = (@_); hide_short_3($code, 'c') }    # line 8
 sub hide_short_3 { my $code = shift; @_ = (@_); hide_short_4($code, 'd') }    # line 9
 sub hide_short_4 { my $code = shift; @_ = (@_); mask_frame(hide => 5); hide_short_5($code, 'e') }    # line 10
-sub hide_short_5 { my $code = shift; @_ = (@_); $code->() }                                          # line 11
+sub hide_short_5 { my $code = shift; @_ = (@_); do_call($code) }                                     # line 11
 
 
 
@@ -252,16 +289,16 @@ sub s_and_a_2 { my $code = shift; @_ = (@_); s_and_a_3($code, 'c') }    # line 8
 sub s_and_a_3 {          # line 9
     my $code = shift;    # line 10
     @_ = (@_);           # line 11
-    mask_frame(0 => 'x', 1 => 'x', 2 => 'x', 3 => 'x', 4 => 'x');    # line 12
+    mask_frame(0 => 'x', 1 => 'x', 2 => '100', 3 => 'x', 4 => 'x');    # line 12
     s_and_a_4($code, 'd');                                           # line 13
 }                        # line 14
 sub s_and_a_4 {          # line 15
     my $code = shift;    # line 16
     @_ = (@_);           # line 17
-    mask_frame(0 => 'y', 1 => 'y', 2 => 'y', 3 => 'y', 4 => 'y', shift => 1);    # line 18
+    mask_frame(0 => 'y', 1 => 'y', 2 => '200', 3 => 'y', 4 => 'y', shift => 1);    # line 18
     s_and_a_5($code, 'e');                                                       # line 19
 }                        # line 20
-sub s_and_a_5 { my $code = shift; @_ = (@_); $code->() } # line 21
+sub s_and_a_5 { my $code = shift; @_ = (@_); do_call($code) } # line 21
 
 
 
@@ -292,7 +329,7 @@ sub full_combo_16 { my $code = shift; @_ = (@_); full_combo_17($code, 'q') }    
 sub full_combo_17 { my $code = shift; @_ = (@_); mask_frame(shift => 3, 0 => 'bar', 5 => 'bar'); full_combo_18($code, 'r') }    # line 23
 sub full_combo_18 { my $code = shift; @_ = (@_); full_combo_19($code, 's') }                                                    # line 24
 sub full_combo_19 { my $code = shift; @_ = (@_); full_combo_20($code, 't') }                                                    # line 25
-sub full_combo_20 { my $code = shift; @_ = (@_); mask_frame(no_start => 1); mask_call({no_start => 1}, $code) }                 # line 26
+sub full_combo_20 { my $code = shift; @_ = (@_); mask_frame(no_start => 1); do_call($code) }                 # line 26
 
 1;
 

@@ -411,7 +411,7 @@ describe trace => sub {
             [
                 [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 21, 'Trace::Mask::Reference::trace'], []],
                 [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 19, 'Trace::Mask::Test::s_and_a_5'],  ['e']],
-                [['x', 'x', 'x', 'y', 'y'], ['d']],
+                [['x', 'x', 100, 'y', 'y'], ['d']],
                 [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 7, 'Trace::Mask::Test::s_and_a_2'], ['b']],
                 [['Trace::Mask::Test', 'mask_test_s_and_a.pl', 4, 'Trace::Mask::Test::s_and_a_1'], ['a']],
                 DNE(),
