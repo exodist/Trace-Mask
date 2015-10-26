@@ -376,13 +376,14 @@ a tracer complies with the specifications.
     use Trace::Mask::Test qw/test_tracer/;
 
     test_tracer(
+        name => 'my tracer',
         trace => \&trace,
+        type  => 'return',
         convert => sub {
             my $stack = shift;
             ...
             return $stack;
         },
-        name => 'my tracer',
     );
 
 =head1 EXPORTS
@@ -409,6 +410,10 @@ tracer. This behavior gives you the ability to debug the final structures, and
 manually compare them.
 
 =over 4
+
+=item name => "..."
+
+Specify a name for your test.
 
 =item trace => \&trace
 
@@ -438,9 +443,32 @@ returned from C<NA()> in place of any value that cannot be obtained from your
 stack trace results. In addition it only checks values you have specified, if
 you only list the first 4 fields from caller then only the first 4 are checked.
 
-=item name => "..."
+=item type => 'return'
 
-Specify a name for your test.
+The trace function will return a trace in a scalar, use that as our trace.
+
+=item type => 'exception'
+
+The trace function will throw an exception, intercept it and use the exception
+as the trace.
+
+=item type => 'warning'
+
+The trace function will issue a warning, intecept it using a C<$SIG{__WARN__}>
+override, then use the warning as our trace.
+
+B<Note:> If your tracer issues more than 1 warning and exception will be
+thrown.
+
+B<Note:> Since this uses a C<$SIG{__WARN__}>, it cannot be used to check traces
+that require a custom C<$SIG{__WARN__} override. See the 'sigwarn' type below
+if you are testing a tool that rewrites warnings.
+
+=item type => 'sigwarn'
+
+The trace function will issue a warning, but a custom $SIG{__WARN__} needs to
+modify it before we see it. This will NOT override C<$SIG{__WARN__}>, instead
+it will intercept all output to STDERR when it calls your tracer.
 
 =item %tests
 
@@ -449,6 +477,7 @@ subset of tests then you can list them with a true value.
 
     test_tracer(
         name    => "foo",
+        type    => 'return',
         trace   => \&trace,
         convert => sub { ... },
 

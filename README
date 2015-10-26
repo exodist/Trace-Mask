@@ -235,6 +235,16 @@ TEST
     test cases and tools useful for verifying your tracing tools are
     compliant with the spec.
 
+PLUGINS
+  Carp
+    Trace::Mask::Carp is included in this distribution. This module can make
+    Carp compliant with Trace::Mask.
+
+  Try::Tiny
+    Trace::Mask::TryTiny is included in this ditribution. Simply loading
+    theis module will cause Try::Tiny framework to be hidden in compliant
+    stack traces.
+
 SEE ALSO
     Sub::Uplevel - Tool for hiding stack frames from all callers, not just
     stack traces.

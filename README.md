@@ -245,6 +245,19 @@ this module are considered usable in production code.
 test cases and tools useful for verifying your tracing tools are compliant with
 the spec.
 
+# PLUGINS
+
+## Carp
+
+[Trace::Mask::Carp](https://metacpan.org/pod/Trace::Mask::Carp) is included in this distribution. This module can make
+[Carp](https://metacpan.org/pod/Carp) compliant with [Trace::Mask](https://metacpan.org/pod/Trace::Mask).
+
+## Try::Tiny
+
+[Trace::Mask::TryTiny](https://metacpan.org/pod/Trace::Mask::TryTiny) is included in this ditribution. Simply loading theis
+module will cause [Try::Tiny](https://metacpan.org/pod/Try::Tiny) framework to be hidden in compliant stack
+traces.
+
 # SEE ALSO
 
 [Sub::Uplevel](https://metacpan.org/pod/Sub::Uplevel) - Tool for hiding stack frames from all callers, not just stack

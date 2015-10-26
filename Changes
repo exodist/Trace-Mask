@@ -1,5 +1,12 @@
 {{$NEXT}}
 
+    - Finish Trace::Mask::Carp for Carp traces
+    - Add Trace::Mask::TryTiny for Try::Tiny masking
+    - Min Carp version is 1.03
+    - Min Try::Tiny supported is 0.03
+    - Misc Fixes
+    - Depend on a newer Test::Stream for some needed features
+
 0.000001  2015-10-24 05:47:55-07:00 America/Los_Angeles
 
     - Initial Release

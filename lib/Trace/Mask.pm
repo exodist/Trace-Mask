@@ -2,7 +2,7 @@ package Trace::Mask;
 use strict;
 use warnings;
 
-our $VERSION = "0.000001";
+our $VERSION = "0.000002";
 
 sub masks() { no warnings 'once'; \%Trace::Mask::MASKS }
 
@@ -266,6 +266,19 @@ this module are considered usable in production code.
 L<Trace::Mask::Test> is included in this distribution. This module provides
 test cases and tools useful for verifying your tracing tools are compliant with
 the spec.
+
+=head1 PLUGINS
+
+=head2 Carp
+
+L<Trace::Mask::Carp> is included in this distribution. This module can make
+L<Carp> compliant with L<Trace::Mask>.
+
+=head2 Try::Tiny
+
+L<Trace::Mask::TryTiny> is included in this ditribution. Simply loading theis
+module will cause L<Try::Tiny> framework to be hidden in compliant stack
+traces.
 
 =head1 SEE ALSO
 

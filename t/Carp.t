@@ -1,4 +1,4 @@
-use Test::Stream -V1, Spec, class => 'Trace::Mask::Carp';
+use Test::Stream -V1, Spec, skip_without => {Carp => '1.03'}, class => 'Trace::Mask::Carp';
 use Trace::Mask::Test qw{
     test_tracer NA
     test_stack_full_combo
@@ -14,7 +14,7 @@ imported_ok qw{
     confess longmess cluck mask parse_carp_line mask_trace
 };
 
-my $ran = 0;
+diag("Carp Version: " . Carp->VERSION . "\n");
 
 tests carp_replacements => sub {
     local $ENV{'NO_TRACE_MASK'};
@@ -260,129 +260,96 @@ tests wrap => sub {
     );
 };
 
+tests mask => sub {
+    mask {
+        test_tracer(
+            name    => 'confess',
+            type    => 'exception',
+            trace   => \&Carp::confess,
+            convert => sub {
+                my $trace = shift;
+                my @stack;
+
+                for my $line (split /[\n\r]+/, $trace) {
+                    my $info = parse_carp_line($line);
+                    my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
+                    my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                    push @stack => [$call, $args];
+                }
+
+                return \@stack;
+            },
+        );
+
+        test_tracer(
+            name    => 'cluck',
+            type    => 'sigwarn',
+            trace   => \&Carp::cluck,
+            convert => sub {
+                my $trace = shift;
+                my @stack;
+
+                for my $line (split /[\n\r]+/, $trace) {
+                    my $info = parse_carp_line($line);
+                    my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
+                    my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                    push @stack => [$call, $args];
+                }
+
+                return \@stack;
+            },
+        );
+    };
+};
+
+tests parse_carp => sub {
+    my $file = __FILE__;
+    my $line = __LINE__ + 1;
+    my $trace = sub { eval { sub { Carp::longmess('yyy') }->('xxx') } }->('aaa', 'bbb');
+    my ($error, $eval, $anon) = split /[\n\r]+/, $trace;
+
+    is(
+        parse_carp_line($error),
+        {indent => "", msg => 'yyy', file => $file, line => $line, orig => $error},
+        "got fields form error line"
+    );
+
+    is(
+        parse_carp_line($eval),
+        {indent => "\t", sub => 'eval', file => $file, line => $line, orig => $eval},
+        "got fields from eval"
+    );
+
+    like(
+        parse_carp_line($anon),
+        {indent => "\t", sub => 'main::__ANON__', args => qr/^("|')aaa("|')\s*,\s*('|")bbb("|')$/, file => $file, line => $line, orig => $anon},
+        "got fields from regular sub call"
+    );
+
+    is(
+        parse_carp_line("ffaas asdfasg gastrh sdfg at file asg 234"),
+        undef,
+        "Not a carp line"
+    );
+};
+
+
+tests mask_trace => sub {
+    my $file = __FILE__;
+    my $line = __LINE__ + 1;
+    my $trace = sub { eval { sub { Carp::longmess("fahfjas fdajas\ndfhajsdfh sajfdhja\nasdfs\n") }->('xxx') } }->('aaa', 'bbb');
+
+    $trace = mask_trace($trace, 'longmess');
+
+    my ($e1, $e2, $e3, $msg, $eval, $anon) = split /[\n\r]+/, $trace;
+
+    is($e1, "fahfjas fdajas", "First error line");
+    is($e2, "dfhajsdfh sajfdhja", "Second error line");
+    is($e3, "asdfs", "Third error line");
+
+    like($msg, qr/ at \Q$file\E line $line\.?/, "got initial message");
+    is($eval, "\teval {...} called at $file line $line", "got eval");
+    like($anon, qr/^\tmain::__ANON__\(('|")aaa('|"),\s*('|")bbb("|')\) called at $file line $line.?$/, "got anon");
+};
+
 done_testing;
-
-__END__
-
-sub mask(&) {
-    my ($code) = @_;
-
-    # We cannot simply intercept the exception at this point, we need to use
-    # the sig handler to ensure it gets masked BEFORE it is cought in an any
-    # evals.
-    local $SIG{__WARN__} = $SIG{__WARN__} || sub { CORE::warn(@_) };
-    local $SIG{__DIE__}  = $SIG{__DIE__}  || sub { CORE::die(@_)  };
-    _global_override();
-
-    BEGIN { mask_line({hide => 2}, 1) }
-    $code->();
-}
-
-sub parse_carp_line {
-    my ($line) = @_;
-    my %out = (orig => $line);
-
-    if ($line =~ m/^(\s*)([^\(]+)\((.*)\) called at (.+) line (\d+)\.?$/) { # Long
-        @out{qw/indent sub args file line/} = ($1, $2, $3, $4, $5);
-    }
-    elsif ($line =~ m/^(\s*)eval \Q{...}\E called at (.+) line (\d+)\.?$/) { # eval
-        @out{qw/indent sub file line/} = ('eval', $1, $2, $3);
-    }
-    elsif ($line =~ m/^(\s*)(.*) at (.+) line (\d+)\.?$/) { # Short
-        @out{qw/indent msg file line/} = ($1, $2, $3, $4);
-    }
-
-    return \%out if keys %out;
-    return undef;
-}
-
-sub _do_shift {
-    my ($shift, $fields) = @_;
-
-    $fields->{sub}  = $shift->{sub};
-    $fields->{args} = $shift->{args};
-}
-
-sub _write_carp_line{
-    my ($fields) = @_;
-    my ($indent, $file, $line, $sub, $msg, $args) = @{$fields}{qw/indent file line sub msg args/};
-    $indent ||= "";
-
-    unless ($sub) {
-        $msg ||= "";
-        return "$indent$msg at $file line $line.\n";
-    }
-
-    if ($sub eq 'eval') {
-        return "$indent$sub {...} called at $file line $line\n";
-    }
-    else {
-        $args ||= "";
-        return "$indent$sub\($args) called at $file line $line\n";
-    }
-}
-
-sub mask_trace {
-    my ($msg, $sub) = @_;
-    return $msg if $ENV{NO_TRACE_MASK};
-    my @lines = split /[\n\r]+/, $msg;
-    return $msg unless @lines > 1;
-
-    my $out = "";
-    my ($shift, $last);
-    my $skip = 0;
-
-    my $num = 0;
-    my $error;
-    for my $line (@lines) {
-        my $fields = parse_carp_line($line);
-        $fields->{sub} ||= $sub unless $num;
-        $error = $fields if exists $fields->{msg};
-        $num++;
-
-        unless($fields) {
-            $out .= "$line\n";
-            next;
-        }
-
-        my $mask = get_mask(@{$fields}{qw/file line/}, $fields->{sub} || '*');
-        $last = $fields unless $mask->{hide} || $mask->{shift};
-
-        $fields->{file} = $mask->{1} if $mask->{1};
-        $fields->{line} = $mask->{2} if $mask->{2};
-        $fields->{sub}  = $mask->{3} if $mask->{3};
-
-        if ($mask->{shift}) {
-            $shift ||= $fields;
-            $skip  = $skip ? $skip + $mask->{shift} - 1 : $mask->{shift};
-        }
-        elsif ($mask->{hide}) {
-            $skip  = $skip ? $skip + $mask->{hide} - 1 : $mask->{hide};
-        }
-        elsif($skip && !(--$skip) && $shift) {
-            _do_shift($shift, $fields);
-            $shift = undef;
-        }
-
-        unless ($skip || ($mask->{no_start} && !$out)) {
-            if ($error) {
-                $fields->{msg} = $error->{msg};
-                $fields->{indent} = $error->{indent};
-                delete $fields->{sub};
-                $error = undef;
-            }
-            $out .= _write_carp_line($fields)
-        }
-
-        last if $mask->{stop};
-    }
-
-    if ($shift) {
-        _do_shift($shift, $last);
-        $out .= _write_carp_line($last) unless $out && $out =~ m/at \Q$last->{file}\E line $last->{line}/;
-    }
-
-    return $out;
-}
-
-1;
