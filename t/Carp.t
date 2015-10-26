@@ -178,18 +178,91 @@ tests global_handlers => sub {
 
 };
 
+tests wrap => sub {
+    no warnings 'redefine';
+    local *Carp::confess  = sub { die 'oops' };
+    local *Carp::cluck    = sub { die 'oops' };
+    local *Carp::longmess = sub { die 'oops' };
+    local *confess;
+    local *cluck;
+    local *longmess;
+    use warnings 'redefine';
+
+    not_imported_ok qw/confess longmess cluck/;
+
+    $CLASS->import('-wrap');
+    ref_is(\&Carp::confess,  \&Trace::Mask::Carp::confess,  "got our confess");
+    ref_is(\&Carp::cluck,    \&Trace::Mask::Carp::cluck,    "got our cluck");
+    ref_is(\&Carp::longmess, \&Trace::Mask::Carp::longmess, "got our longmess");
+
+    Carp->import(qw/confess longmess cluck/);
+    imported_ok qw/confess longmess cluck/;
+
+    ref_is(\&confess,  \&Trace::Mask::Carp::confess,  "got our confess");
+    ref_is(\&cluck,    \&Trace::Mask::Carp::cluck,    "got our cluck");
+    ref_is(\&longmess, \&Trace::Mask::Carp::longmess, "got our longmess");
+
+    test_tracer(
+        name    => 'longmess',
+        type    => 'return',
+        trace   => \&longmess,
+        convert => sub {
+            my $trace = shift;
+            my @stack;
+
+            for my $line (split /[\n\r]+/, $trace) {
+                my $info = parse_carp_line($line);
+                my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
+                my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                push @stack => [$call, $args];
+            }
+
+            return \@stack;
+        },
+    );
+
+    test_tracer(
+        name    => 'confess',
+        type    => 'exception',
+        trace   => \&confess,
+        convert => sub {
+            my $trace = shift;
+            my @stack;
+
+            for my $line (split /[\n\r]+/, $trace) {
+                my $info = parse_carp_line($line);
+                my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
+                my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                push @stack => [$call, $args];
+            }
+
+            return \@stack;
+        },
+    );
+
+    test_tracer(
+        name    => 'cluck',
+        type    => 'warning',
+        trace   => \&cluck,
+        convert => sub {
+            my $trace = shift;
+            my @stack;
+
+            for my $line (split /[\n\r]+/, $trace) {
+                my $info = parse_carp_line($line);
+                my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
+                my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                push @stack => [$call, $args];
+            }
+
+            return \@stack;
+        },
+    );
+};
 
 done_testing;
 
 __END__
-
-
-sub _wrap_carp {
-    no warnings 'redefine';
-    *Carp::confess  = \&confess;
-    *Carp::longmess = \&longmess;
-    *Carp::cluck    = \&cluck;
-}
 
 sub mask(&) {
     my ($code) = @_;
