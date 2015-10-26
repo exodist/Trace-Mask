@@ -81,9 +81,14 @@ sub trace {
 
     my ($shift, $last);
     my $skip = 0;
+    my $stopped = 0;
     while (my ($call, $args) = _call_details($level++)) {
         my $mask = get_mask(@{$call}[1,2,3]);
         my $frame = [$call, $args, $mask];
+
+        next if $stopped && !$mask->{restart};
+        $stopped = 0;
+
         $last = $frame unless $mask->{hide} || $mask->{shift};
 
         # Need to do this even if the frame is not pushed now, it may be pushed
@@ -108,7 +113,7 @@ sub trace {
 
         push @stack => $frame unless $skip || ($mask->{no_start} && !@stack);
 
-        last if $mask->{stop};
+        $stopped = 1 if $mask->{stop};
     }
 
     if ($shift) {

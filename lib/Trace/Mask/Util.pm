@@ -25,6 +25,7 @@ my %VALID_MASK = (
     no_start => 1,
     shift    => 1,
     stop     => 1,
+    restart  => 1,
 );
 
 sub _MASKS() { no warnings 'once'; \%Trace::Mask::MASKS }

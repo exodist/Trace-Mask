@@ -15,6 +15,7 @@ our @EXPORT_OK = qw{
     test_stack_hide test_stack_shift test_stack_stop test_stack_no_start
     test_stack_alter test_stack_shift_and_hide test_stack_shift_short
     test_stack_hide_short test_stack_shift_and_alter test_stack_full_combo
+    test_stack_restart
 };
 
 sub NA() { \&NA }
@@ -338,7 +339,7 @@ sub test_stack_full_combo {              # line 1
 }                                        # line 5
 
 sub full_combo_1 { my $code = shift; @_ = (@_); full_combo_2($code, 'b') }    # line 7
-sub full_combo_2 { my $code = shift; @_ = (@_); full_combo_3($code, 'c') }    # line 8
+sub full_combo_2 { my $code = shift; @_ = (@_); mask_frame('stop' => 1, 'restart' => 1); full_combo_3($code, 'c') }    # line 8
 sub full_combo_3 { my $code = shift; @_ = (@_); full_combo_4($code, 'd') }    # line 9
 sub full_combo_4 { my $code = shift; @_ = (@_); mask_frame('stop' => 1); full_combo_5($code, 'e') }    # line 10
 sub full_combo_5 { my $code = shift; @_ = (@_); full_combo_6($code, 'f') }                             # line 11
@@ -357,6 +358,23 @@ sub full_combo_17 { my $code = shift; @_ = (@_); mask_frame(shift => 3, 0 => 'ba
 sub full_combo_18 { my $code = shift; @_ = (@_); full_combo_19($code, 's') }                                                    # line 24
 sub full_combo_19 { my $code = shift; @_ = (@_); full_combo_20($code, 't') }                                                    # line 25
 sub full_combo_20 { my $code = shift; @_ = (@_); mask_frame(no_start => 1); mask_call({no_start => 1}, $code) }                 # line 26
+
+
+
+
+#line 1 "mask_test_restart.pl"
+sub test_stack_restart {                 # line 1
+    my ($callback) = @_;                 # line 2
+    mask_frame(stop => 1, hide => 1);    # line 3
+    restart_1($callback, 'a');           # line 4
+}                                        # line 5
+
+sub restart_1 { my $code = shift; @_ = (@_); restart_2($code, 'b') }                                # line 7
+sub restart_2 { my $code = shift; @_ = (@_); mask_frame('restart' => 1); restart_3($code, 'c') }    # line 8
+sub restart_3 { my $code = shift; @_ = (@_); restart_4($code, 'd') }                                # line 9
+sub restart_4 { my $code = shift; @_ = (@_); mask_frame('stop' => 1); restart_5($code, 'e') }       # line 10
+sub restart_5 { my $code = shift; @_ = (@_); restart_6($code, 'f') }                                # line 11
+sub restart_6 { my $code = shift; @_ = (@_); mask_call({no_start => 1}, $code) }                    # line 12
 
 1;
 

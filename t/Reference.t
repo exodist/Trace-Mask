@@ -1,4 +1,4 @@
-use Test::Stream -V1, Spec, class => 'Trace::Mask::Reference', Compare => '*';
+use Test::Stream -V1, Subtest, class => 'Trace::Mask::Reference', Compare => '*';
 use Trace::Mask;
 use Trace::Mask::Util qw/mask_frame mask_sub/;
 
@@ -6,6 +6,7 @@ use Trace::Mask::Test qw{
     test_stack_hide test_stack_shift test_stack_stop test_stack_no_start
     test_stack_alter test_stack_shift_and_hide test_stack_shift_short
     test_stack_hide_short test_stack_shift_and_alter test_stack_full_combo
+    test_stack_restart
 };
 
 use Trace::Mask::Reference qw{
@@ -22,7 +23,7 @@ BEGIN {
     *_call_details = Trace::Mask::Reference->can('_call_details') or die "no _call_details";
 }
 
-tests render_arg => sub {
+subtest render_arg => sub {
     is(render_arg(), "undef", "undef as string");
 
     is(render_arg(1), 1, "numbers are not quoted");
@@ -44,7 +45,7 @@ tests render_arg => sub {
 };
 
 sub do_trace { trace_string(1) }
-tests try_example => sub {
+subtest try_example => sub {
     is(try_example { die "xxx\n" }, "xxx\n", "got exception");
     is(try_example { 1 },           undef,   "No exception");
 
@@ -63,7 +64,7 @@ tests try_example => sub {
 };
 
 sub details { _call_details(@_) };
-tests _call_details => sub {
+subtest _call_details => sub {
     my $line = __LINE__ + 1;
     my @details = details(0,1,2,3);
     is(
@@ -77,7 +78,7 @@ tests _call_details => sub {
     ok(!@details, "no details for bad level");
 };
 
-tests _do_shift => sub {
+subtest _do_shift => sub {
     my $shift = [
         ['a1', 'b1', 1, 'foo1', 'x1', 'y1', 'z1'],
         [qw/a b c/],
@@ -101,8 +102,8 @@ tests _do_shift => sub {
     );
 };
 
-describe trace => sub {
-    tests hide => sub {
+subtest trace => sub {
+    subtest hide => sub {
         local $ENV{NO_TRACE_MASK} = 1;
         my $trace = test_stack_hide(\&trace);
         like(
@@ -133,7 +134,7 @@ describe trace => sub {
         );
     };
 
-    tests shift => sub {
+    subtest shift => sub {
         local $ENV{NO_TRACE_MASK} = 1;
         my $trace = test_stack_shift(\&trace);
         like(
@@ -164,7 +165,7 @@ describe trace => sub {
         );
     };
 
-    tests stop => sub {
+    subtest stop => sub {
         local $ENV{NO_TRACE_MASK} = 1;
         my $trace = test_stack_stop(\&trace);
         like(
@@ -196,7 +197,7 @@ describe trace => sub {
         );
     };
 
-    tests no_start => sub {
+    subtest no_start => sub {
         local $ENV{NO_TRACE_MASK} = 1;
         my $trace = test_stack_no_start(\&trace);
         like(
@@ -261,7 +262,7 @@ describe trace => sub {
         );
     };
 
-    tests alter => sub {
+    subtest alter => sub {
         local $ENV{NO_TRACE_MASK} = 1;
         my $trace = test_stack_alter(\&trace);
         like(
@@ -297,7 +298,7 @@ describe trace => sub {
         ok(@$altered < 900, "Did not add to args");
     };
 
-    tests shift_and_hide => sub {
+    subtest shift_and_hide => sub {
         local $ENV{NO_TRACE_MASK} = 1;
         my $trace = test_stack_shift_and_hide(\&trace);
         like(
@@ -328,7 +329,7 @@ describe trace => sub {
         );
     };
 
-    tests shift_short => sub {
+    subtest shift_short => sub {
         local $ENV{NO_TRACE_MASK} = 1;
         my $trace = test_stack_shift_short(\&trace);
         like(
@@ -359,7 +360,7 @@ describe trace => sub {
         );
     };
 
-    tests hide_short => sub {
+    subtest hide_short => sub {
         local $ENV{NO_TRACE_MASK} = 1;
         my $trace = test_stack_hide_short(\&trace);
         like(
@@ -388,7 +389,7 @@ describe trace => sub {
         );
     };
 
-    tests shift_and_alter => sub {
+    subtest shift_and_alter => sub {
         local $ENV{NO_TRACE_MASK} = 1;
         my $trace = test_stack_shift_and_alter(\&trace);
         like(
@@ -420,7 +421,7 @@ describe trace => sub {
         );
     };
 
-    tests test_stack_full_combo => sub {
+    subtest test_stack_full_combo => sub {
         local $ENV{NO_TRACE_MASK} = 1;
         my $trace = test_stack_full_combo(\&trace);
         like(
@@ -468,6 +469,40 @@ describe trace => sub {
                 [['Trace::Mask::Test', 'mask_test_full_combo.pl', 11, 'Trace::Mask::Test::full_combo_6',],  ['f']],
                 [['Trace::Mask::Test', 'mask_test_full_combo.pl', 10, 'Trace::Mask::Test::full_combo_5',],  ['e']],
                 [['Trace::Mask::Test', 'mask_test_full_combo.pl', 9,  'Trace::Mask::Test::full_combo_4',],  ['d']],
+                [['Trace::Mask::Test', 'mask_test_full_combo.pl', 7,  'Trace::Mask::Test::full_combo_2',],  ['b']],
+                DNE(),
+            ],
+            "Combination stack looks right"
+        );
+    };
+
+    subtest test_stack_restart => sub {
+        local $ENV{NO_TRACE_MASK} = 1;
+        my $trace = test_stack_restart(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_restart.pl', 12, 'Trace::Mask::Reference::trace',],    []],
+                [['Trace::Mask::Test', 'mask_test_restart.pl', 11, 'Trace::Mask::Test::restart_6',],  ['f']],
+                [['Trace::Mask::Test', 'mask_test_restart.pl', 10, 'Trace::Mask::Test::restart_5',],  ['e']],
+                [['Trace::Mask::Test', 'mask_test_restart.pl', 9,  'Trace::Mask::Test::restart_4',],  ['d']],
+                [['Trace::Mask::Test', 'mask_test_restart.pl', 8,  'Trace::Mask::Test::restart_3',],  ['c']],
+                [['Trace::Mask::Test', 'mask_test_restart.pl', 7,  'Trace::Mask::Test::restart_2',],  ['b']],
+                [['Trace::Mask::Test', 'mask_test_restart.pl', 4,  'Trace::Mask::Test::restart_1',],  ['a']],
+            ],
+            "Got all frames"
+        );
+
+        $ENV{NO_TRACE_MASK} = 0;
+        $trace = test_stack_restart(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_restart.pl', 11, 'Trace::Mask::Test::restart_6',],  ['f']],
+                [['Trace::Mask::Test', 'mask_test_restart.pl', 10, 'Trace::Mask::Test::restart_5',],  ['e']],
+                [['Trace::Mask::Test', 'mask_test_restart.pl', 9,  'Trace::Mask::Test::restart_4',],  ['d']],
+                [['Trace::Mask::Test', 'mask_test_restart.pl', 7,  'Trace::Mask::Test::restart_2',],  ['b']],
+                [['Trace::Mask::Test', 'mask_test_restart.pl', 4,  'Trace::Mask::Test::restart_1',],  ['a']],
                 DNE(),
             ],
             "Combination stack looks right"
@@ -475,7 +510,7 @@ describe trace => sub {
     };
 };
 
-tests trace_string => sub {
+subtest trace_string => sub {
     local $ENV{NO_TRACE_MASK};
     my $trace = test_stack_full_combo(\&trace_string);
     is($trace, <<'    EOT', "Got trace");
@@ -491,6 +526,7 @@ Trace::Mask::Test::full_combo_7('g') called at mask_test_full_combo.pl line 12
 Trace::Mask::Test::full_combo_6('f') called at mask_test_full_combo.pl line 11
 Trace::Mask::Test::full_combo_5('e') called at mask_test_full_combo.pl line 10
 Trace::Mask::Test::full_combo_4('d') called at mask_test_full_combo.pl line 9
+Trace::Mask::Test::full_combo_2('b') called at mask_test_full_combo.pl line 7
     EOT
 
     my $file = __FILE__;
@@ -509,7 +545,7 @@ main::__ANON__() called at $file line $line3
 
 sub my_call { trace_mask_caller(@_) }
 sub my_wrap { my_call(@_)           }
-tests trace_string => sub {
+subtest trace_string => sub {
     local $ENV{NO_TRACE_MASK};
 
     my @call = my_call();
