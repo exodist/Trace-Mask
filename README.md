@@ -77,6 +77,7 @@ This is an overview of the MASKS structure:
                     # Behaviors
                     no_start => BOOL,     # Do not start a trace on this frame
                     stop     => BOOL,     # Stop tracing at this frame
+                    restart  => BOOL,     # Start tracing again at this frame
                     hide     => COUNT,    # Hide the frames completely
                     shift    => COUNT,    # Pretend this frame started X frames before it did
 
@@ -129,6 +130,7 @@ Numeric fields always correspond to the same index in the list returned from
         # Behaviors
         no_start => BOOL,     # Do not start a trace on this frame
         stop     => BOOL,     # Stop tracing at this frame
+        restart  => BOOL,     # Start tracing again at this frame
         hide     => COUNT,    # Hide the frames completely
         shift    => COUNT,    # Pretend this frame started X frames before it did
 
@@ -152,6 +154,12 @@ The following additional behaviors may be specified:
 
     This tells the stack tracer to stop tracing at this frame. The frame itself
     will be listed in the trace, unless this is combined with the 'hide' option.
+
+- restart => $BOOL
+
+    This tells the stack tracer to start again after a stop, effectively skipping
+    all the frames between the stop and this start. This may be combined with
+    'stop' in order to show a single frame.
 
 - hide => $COUNT
 
@@ -219,6 +227,22 @@ the package, file, etc. This will work for any VALID index into the list. This
 cannot be used to extend the list. Numeric keys outside the bounds of the list
 are simply ignored, this is for compatability as different perl versions may
 have a different size list.
+
+## SPECIAL/MAGIC subs
+
+Traces must NEVER hide or alter the following special/magic subs:
+
+- BEGIN
+- UNITCHECK
+- CHECK
+- INIT
+- END
+- DESTROY
+- import
+- unimport
+
+These subs are all special in one way or another, hiding them would be hiding
+critical information.
 
 # CLASS METHODS
 

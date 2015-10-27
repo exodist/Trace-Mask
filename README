@@ -71,6 +71,7 @@ SPECIFICATION
                         # Behaviors
                         no_start => BOOL,     # Do not start a trace on this frame
                         stop     => BOOL,     # Stop tracing at this frame
+                        restart  => BOOL,     # Start tracing again at this frame
                         hide     => COUNT,    # Hide the frames completely
                         shift    => COUNT,    # Pretend this frame started X frames before it did
 
@@ -125,6 +126,7 @@ SPECIFICATION
            # Behaviors
            no_start => BOOL,     # Do not start a trace on this frame
            stop     => BOOL,     # Stop tracing at this frame
+           restart  => BOOL,     # Start tracing again at this frame
            hide     => COUNT,    # Hide the frames completely
            shift    => COUNT,    # Pretend this frame started X frames before it did
 
@@ -147,6 +149,11 @@ SPECIFICATION
         This tells the stack tracer to stop tracing at this frame. The frame
         itself will be listed in the trace, unless this is combined with the
         'hide' option.
+
+    restart => $BOOL
+        This tells the stack tracer to start again after a stop, effectively
+        skipping all the frames between the stop and this start. This may be
+        combined with 'stop' in order to show a single frame.
 
     hide => $COUNT
         This completely hides the frame from a stack trace. This does not
@@ -212,6 +219,21 @@ SPECIFICATION
     Numeric keys outside the bounds of the list are simply ignored, this is
     for compatability as different perl versions may have a different size
     list.
+
+  SPECIAL/MAGIC subs
+    Traces must NEVER hide or alter the following special/magic subs:
+
+    BEGIN
+    UNITCHECK
+    CHECK
+    INIT
+    END
+    DESTROY
+    import
+    unimport
+
+    These subs are all special in one way or another, hiding them would be
+    hiding critical information.
 
 CLASS METHODS
     The "masks()" method is defined in Trace::Mask, it returns a reference

@@ -2,7 +2,7 @@ package Trace::Mask;
 use strict;
 use warnings;
 
-our $VERSION = "0.000003";
+our $VERSION = "0.000004";
 
 sub masks() { no warnings 'once'; \%Trace::Mask::MASKS }
 
@@ -249,6 +249,33 @@ the package, file, etc. This will work for any VALID index into the list. This
 cannot be used to extend the list. Numeric keys outside the bounds of the list
 are simply ignored, this is for compatability as different perl versions may
 have a different size list.
+
+=head2 SPECIAL/MAGIC subs
+
+Traces must NEVER hide or alter the following special/magic subs:
+
+=over 4
+
+=item BEGIN
+
+=item UNITCHECK
+
+=item CHECK
+
+=item INIT
+
+=item END
+
+=item DESTROY
+
+=item import
+
+=item unimport
+
+=back
+
+These subs are all special in one way or another, hiding them would be hiding
+critical information.
 
 =head1 CLASS METHODS
 

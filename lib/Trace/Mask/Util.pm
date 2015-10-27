@@ -170,6 +170,8 @@ sub get_mask {
 
     my $masks = _MASKS();
 
+    return {special => $1} if $sub =~ m/(?:^|:)(END|BEGIN|UNITCHECK|CHECK|INIT|DESTROY|import|unimport)$/;
+
     my @order = grep { defined $_ } (
         $masks->{$file}->{'*'}->{'*'},
         $masks->{$file}->{$line}->{'*'},

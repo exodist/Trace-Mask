@@ -86,38 +86,44 @@ sub trace {
         my $mask = get_mask(@{$call}[1,2,3]);
         my $frame = [$call, $args, $mask];
 
-        next if $stopped && !$mask->{restart};
-        $stopped = 0;
+        my $special = $mask->{special};
 
-        $last = $frame unless $mask->{hide} || $mask->{shift};
+        next if $stopped && !($mask->{restart} || $special);
+        $stopped = 0 if $mask->{restart};
 
-        # Need to do this even if the frame is not pushed now, it may be pushed
-        # later depending on shift.
-        for my $idx (keys %$mask) {
-            next unless $idx =~ m/^\d+$/;
-            next if $idx >= @$call;    # Do not create new call indexes
-            $call->[$idx] = $mask->{$idx};
+        $last = $frame unless $mask->{hide} || $mask->{shift} || $special;
+
+        unless($special) {
+            # Need to do this even if the frame is not pushed now, it may be pushed
+            # later depending on shift.
+            for my $idx (keys %$mask) {
+                next unless $idx =~ m/^\d+$/;
+                next if $idx >= @$call;    # Do not create new call indexes
+                $call->[$idx] = $mask->{$idx};
+            }
         }
 
         if ($mask->{shift}) {
             $shift ||= $frame;
-            $skip  = $skip ? $skip + $mask->{shift} - 1 : $mask->{shift};
+            $skip  = ($skip || $special) ? $skip + $mask->{shift} - 1 : $mask->{shift};
         }
         elsif ($mask->{hide}) {
-            $skip  = $skip ? $skip + $mask->{hide} - 1 : $mask->{hide};
+            $skip  = ($skip || $special) ? $skip + $mask->{hide} - 1 : $mask->{hide};
         }
         elsif($skip && !(--$skip) && $shift) {
-            _do_shift($shift, $frame);
+            _do_shift($shift, $frame) unless $special;
             $shift = undef;
         }
 
-        push @stack => $frame unless $skip || ($mask->{no_start} && !@stack);
+        my $push = !($skip || ($mask->{no_start} && !@stack));
+
+        push @stack => $frame if $push || $special;
 
         $stopped = 1 if $mask->{stop};
     }
 
     if ($shift) {
-        _do_shift($shift, $last);
+        _do_shift($shift, $last) unless $last->[2]->{special};
         push @stack => $last unless @stack && $stack[-1] == $last;
     }
 
