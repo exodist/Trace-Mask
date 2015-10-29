@@ -86,14 +86,14 @@ sub trace {
         my $mask = get_mask(@{$call}[1,2,3]);
         my $frame = [$call, $args, $mask];
 
-        my $special = $mask->{special};
+        my $lock = $mask->{lock};
 
-        next if $stopped && !($mask->{restart} || $special);
+        next if $stopped && !($mask->{restart} || $lock);
         $stopped = 0 if $mask->{restart};
 
-        $last = $frame unless $mask->{hide} || $mask->{shift} || $special;
+        $last = $frame unless $mask->{hide} || $mask->{shift} || $lock;
 
-        unless($special) {
+        unless($lock) {
             # Need to do this even if the frame is not pushed now, it may be pushed
             # later depending on shift.
             for my $idx (keys %$mask) {
@@ -105,25 +105,25 @@ sub trace {
 
         if ($mask->{shift}) {
             $shift ||= $frame;
-            $skip  = ($skip || $special) ? $skip + $mask->{shift} - 1 : $mask->{shift};
+            $skip  = ($skip || $lock) ? $skip + $mask->{shift} - 1 : $mask->{shift};
         }
         elsif ($mask->{hide}) {
-            $skip  = ($skip || $special) ? $skip + $mask->{hide} - 1 : $mask->{hide};
+            $skip  = ($skip || $lock) ? $skip + $mask->{hide} - 1 : $mask->{hide};
         }
         elsif($skip && !(--$skip) && $shift) {
-            _do_shift($shift, $frame) unless $special;
+            _do_shift($shift, $frame) unless $lock;
             $shift = undef;
         }
 
         my $push = !($skip || ($mask->{no_start} && !@stack));
 
-        push @stack => $frame if $push || $special;
+        push @stack => $frame if $push || $lock;
 
         $stopped = 1 if $mask->{stop};
     }
 
     if ($shift) {
-        _do_shift($shift, $last) unless $last->[2]->{special};
+        _do_shift($shift, $last) unless $last->[2]->{lock};
         push @stack => $last unless @stack && $stack[-1] == $last;
     }
 

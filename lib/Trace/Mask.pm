@@ -2,7 +2,7 @@ package Trace::Mask;
 use strict;
 use warnings;
 
-our $VERSION = "0.000004";
+our $VERSION = "0.000005";
 
 sub masks() { no warnings 'once'; \%Trace::Mask::MASKS }
 
@@ -98,6 +98,7 @@ This is an overview of the MASKS structure:
                     restart  => BOOL,     # Start tracing again at this frame
                     hide     => COUNT,    # Hide the frames completely
                     shift    => COUNT,    # Pretend this frame started X frames before it did
+                    lock     => BOOL,     # Prevent the frame from being hidden or modified
 
                     # Replacements
                     0 => PACKAGE,         # Replace the package listed in the frame
@@ -151,6 +152,7 @@ C<caller()>.
        restart  => BOOL,     # Start tracing again at this frame
        hide     => COUNT,    # Hide the frames completely
        shift    => COUNT,    # Pretend this frame started X frames before it did
+       lock     => BOOL,     # Prevent the frame from being hidden or modified
 
        # Replacements
        0 => PACKAGE,         # Replace the package listed in the frame
@@ -200,6 +202,13 @@ than the remaining stack, the lowest unhidden/unshifted stack frame will be the
 recipient of the shift operation, even if the shift frame itself is the lowest.
 
 This has the same effect on a stack trace as C<goto &sub>.
+
+=item lock => $BOOL
+
+Locking a frame means that it must be displayed, and cannot be modified. If it
+is lower than a stop, or in the middle of a hide/shift span it must be shown
+anyway. No replacements will have any effect, and it cannot be modified by a
+shift.
 
 =back
 
@@ -252,7 +261,8 @@ have a different size list.
 
 =head2 SPECIAL/MAGIC subs
 
-Traces must NEVER hide or alter the following special/magic subs:
+Traces must NEVER hide or alter the following special/magic subs, they should
+be considered the same as any C<lock> frame.
 
 =over 4
 

@@ -6,7 +6,7 @@ use Trace::Mask::Test qw{
     test_stack_hide test_stack_shift test_stack_stop test_stack_no_start
     test_stack_alter test_stack_shift_and_hide test_stack_shift_short
     test_stack_hide_short test_stack_shift_and_alter test_stack_full_combo
-    test_stack_restart test_stack_special
+    test_stack_restart test_stack_special test_stack_lock
 };
 
 use Trace::Mask::Reference qw{
@@ -512,8 +512,6 @@ subtest trace => sub {
     subtest test_stack_special => sub {
         local $ENV{NO_TRACE_MASK} = 1;
         my $trace = test_stack_special(\&trace);
-        use Data::Dumper;
-        print Dumper($trace);
         like(
             $trace,
             [
@@ -541,6 +539,39 @@ subtest trace => sub {
                 DNE(),
             ],
             "did not mask unimport, and list it even after a stop"
+        );
+    };
+
+    subtest test_stack_lock => sub {
+        local $ENV{NO_TRACE_MASK} = 1;
+        my $trace = test_stack_lock(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_lock.pl', 13, 'Trace::Mask::Reference::trace',], []],
+                [['Trace::Mask::Test', 'mask_test_lock.pl', 12, 'Trace::Mask::Test::lock_6',],     ['g']],
+                [['Trace::Mask::Test', 'mask_test_lock.pl', 11, 'Trace::Mask::Test::lock_5',],     ['f']],
+                [['Trace::Mask::Test', 'mask_test_lock.pl', 10, 'Trace::Mask::Test::lock_4',],     ['e']],
+                [['Trace::Mask::Test', 'mask_test_lock.pl', 9,  'Trace::Mask::Test::lock_3',],     ['d']],
+                [['Trace::Mask::Test', 'mask_test_lock.pl', 8,  'Trace::Mask::Test::lock_x',],     ['c']],
+                [['Trace::Mask::Test', 'mask_test_lock.pl', 7,  'Trace::Mask::Test::lock_2',],     ['b']],
+                [['Trace::Mask::Test', 'mask_test_lock.pl', 4,  'Trace::Mask::Test::lock_1',],     ['a']],
+            ],
+            "Got all frames"
+        );
+
+        $ENV{NO_TRACE_MASK} = 0;
+        $trace = test_stack_lock(\&trace);
+        like(
+            $trace,
+            [
+                [['Trace::Mask::Test', 'mask_test_lock.pl', 13, 'Trace::Mask::Reference::trace',], []],
+                [['Trace::Mask::Test', 'mask_test_lock.pl', 12, 'Trace::Mask::Test::lock_6',],     ['g']],
+                [['Trace::Mask::Test', 'mask_test_lock.pl', 11, 'Trace::Mask::Test::lock_5',],     ['f']],
+                [['Trace::Mask::Test', 'mask_test_lock.pl', 8,  'Trace::Mask::Test::lock_x',],     ['c']],
+                DNE(),
+            ],
+            "did not mask lock_x, and list it even after a stop"
         );
     };
 };

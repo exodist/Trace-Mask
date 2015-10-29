@@ -1,6 +1,11 @@
 {{$NEXT}}
 
+    - Add 'lock' to emulatre the specials
+    - Use lock under the hood for specials.
+
 0.000004  2015-10-26 23:53:53-07:00 America/Los_Angeles
+
+    - Rules for 'special' stack frames
 
 0.000003  2015-10-26 17:01:50-07:00 America/Los_Angeles
 

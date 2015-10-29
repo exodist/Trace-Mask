@@ -26,6 +26,7 @@ my %VALID_MASK = (
     shift    => 1,
     stop     => 1,
     restart  => 1,
+    lock     => 1,
 );
 
 sub _MASKS() { no warnings 'once'; \%Trace::Mask::MASKS }
@@ -170,7 +171,7 @@ sub get_mask {
 
     my $masks = _MASKS();
 
-    return {special => $1} if $sub =~ m/(?:^|:)(END|BEGIN|UNITCHECK|CHECK|INIT|DESTROY|import|unimport)$/;
+    return {lock => $1} if $sub =~ m/(?:^|:)(END|BEGIN|UNITCHECK|CHECK|INIT|DESTROY|import|unimport)$/;
 
     my @order = grep { defined $_ } (
         $masks->{$file}->{'*'}->{'*'},

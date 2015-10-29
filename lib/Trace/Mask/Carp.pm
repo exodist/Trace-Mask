@@ -158,11 +158,11 @@ sub mask_trace {
         $num++;
 
         my $mask = get_mask(@{$fields}{qw/file line/}, $fields->{sub} || '*');
-        next if $stopped && !($mask->{restart} || $mask->{special});
+        next if $stopped && !($mask->{restart} || $mask->{lock});
         $stopped = 0 if $mask->{restart};
-        $last = $fields unless $mask->{hide} || $mask->{shift} || $mask->{special};
+        $last = $fields unless $mask->{hide} || $mask->{shift} || $mask->{lock};
 
-        unless ($mask->{special}) {
+        unless ($mask->{lock}) {
             $fields->{file} = $mask->{1} if $mask->{1};
             $fields->{line} = $mask->{2} if $mask->{2};
             $fields->{sub}  = $mask->{3} if $mask->{3};
@@ -170,13 +170,13 @@ sub mask_trace {
 
         if ($mask->{shift}) {
             $shift ||= $fields;
-            $skip  = ($skip || $mask->{special}) ? $skip + $mask->{shift} - 1 : $mask->{shift};
+            $skip  = ($skip || $mask->{lock}) ? $skip + $mask->{shift} - 1 : $mask->{shift};
         }
         elsif ($mask->{hide}) {
-            $skip  = ($skip || $mask->{special}) ? $skip + $mask->{hide} - 1 : $mask->{hide};
+            $skip  = ($skip || $mask->{lock}) ? $skip + $mask->{hide} - 1 : $mask->{hide};
         }
         elsif($skip && !(--$skip) && $shift) {
-            unless ($mask->{special}) {
+            unless ($mask->{lock}) {
                 $fields->{msg}    = $shift->{msg};
                 $fields->{indent} = $shift->{indent};
                 $fields->{sub}    = $shift->{sub};

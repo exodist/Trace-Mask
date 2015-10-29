@@ -15,7 +15,7 @@ our @EXPORT_OK = qw{
     test_stack_hide test_stack_shift test_stack_stop test_stack_no_start
     test_stack_alter test_stack_shift_and_hide test_stack_shift_short
     test_stack_hide_short test_stack_shift_and_alter test_stack_full_combo
-    test_stack_restart test_stack_special
+    test_stack_restart test_stack_special test_stack_lock
 };
 
 sub NA() { \&NA }
@@ -393,6 +393,25 @@ sub special_3 { my $code = shift; @_ = (@_); special_4($code, 'e') }
 sub special_4 { my $code = shift; @_ = (@_); special_5($code, 'f') }
 sub special_5 { my $code = shift; @_ = (@_); mask_frame(stop => 1); special_6($code, 'g') }
 sub special_6 { my $code = shift; @_ = (@_); $code->() }
+
+
+
+
+#line 1 "mask_test_lock.pl"
+sub test_stack_lock {                    # line 1
+    my ($callback) = @_;                 # line 2
+    mask_frame(stop => 1, hide => 1);    # line 3
+    lock_1($callback, 'a');              # line 4
+}                                        # line 5
+
+sub lock_1 { my $code = shift; @_ = (@_); lock_2($code, 'b') }
+sub lock_2 { my $code = shift; @_ = (@_); lock_x($code, 'c') }
+sub lock_x { my $code = shift; @_ = (@_); mask_frame(hide => 1, lock => 1); lock_3($code, 'd') }
+sub lock_3 { my $code = shift; @_ = (@_); lock_4($code, 'e') }
+sub lock_4 { my $code = shift; @_ = (@_); lock_5($code, 'f') }
+sub lock_5 { my $code = shift; @_ = (@_); mask_frame(stop => 1); lock_6($code, 'g') }
+sub lock_6 { my $code = shift; @_ = (@_); $code->() }
+
 
 1;
 

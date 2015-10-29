@@ -39,7 +39,7 @@ like(
     [
         [[__PACKAGE__, __FILE__, $trace_line,    'Trace::Mask::Reference::trace'], [], {}],
         [[__PACKAGE__, __FILE__, $do_trace_line, 'main::do_trace'],                [], {}],
-        [[__PACKAGE__, __FILE__, $any,           'main::BEGIN'],                   [], {special => 'BEGIN'}],
+        [[__PACKAGE__, __FILE__, $any,           'main::BEGIN'],                   [], {lock => 'BEGIN'}],
         DNE(),
     ],
     "BEGIN trace"
@@ -50,7 +50,7 @@ like(
     [
         [[__PACKAGE__, __FILE__, $trace_line,    'Trace::Mask::Reference::trace'], [], {}],
         [[__PACKAGE__, __FILE__, $do_trace_line, 'main::do_trace'],                [], {}],
-        [[__PACKAGE__, __FILE__, $any,           'main::UNITCHECK'],               [], {special => 'UNITCHECK'}],
+        [[__PACKAGE__, __FILE__, $any,           'main::UNITCHECK'],               [], {lock => 'UNITCHECK'}],
         DNE(),
     ],
     "UNITCHECK trace"
@@ -61,7 +61,7 @@ like(
     [
         [[__PACKAGE__, __FILE__, $trace_line,    'Trace::Mask::Reference::trace'], [], {}],
         [[__PACKAGE__, __FILE__, $do_trace_line, 'main::do_trace'],                [], {}],
-        [[__PACKAGE__, __FILE__, $any,           'main::CHECK'],                   [], {special => 'CHECK'}],
+        [[__PACKAGE__, __FILE__, $any,           'main::CHECK'],                   [], {lock => 'CHECK'}],
         DNE(),
     ],
     "CHECK trace"
@@ -72,7 +72,7 @@ like(
     [
         [[__PACKAGE__, __FILE__, $trace_line,    'Trace::Mask::Reference::trace'], [], {}],
         [[__PACKAGE__, __FILE__, $do_trace_line, 'main::do_trace'],                [], {}],
-        [[__PACKAGE__, __FILE__, $any,           'main::INIT'],                    [], {special => 'INIT'}],
+        [[__PACKAGE__, __FILE__, $any,           'main::INIT'],                    [], {lock => 'INIT'}],
         DNE(),
     ],
     "INIT trace"
@@ -83,7 +83,7 @@ like(
     [
         [[__PACKAGE__, __FILE__, $trace_line,    'Trace::Mask::Reference::trace'], [], {}],
         [[__PACKAGE__, __FILE__, $do_trace_line, 'main::do_trace'],                [], {}],
-        [[__PACKAGE__, __FILE__, $any,           'main::DESTROY'],                 [], {special => 'DESTROY'}],
+        [[__PACKAGE__, __FILE__, $any,           'main::DESTROY'],                 [], {lock => 'DESTROY'}],
         DNE(),
     ],
     "DESTROY trace"
@@ -94,7 +94,7 @@ like(
     [
         [[__PACKAGE__, __FILE__, $trace_line,    'Trace::Mask::Reference::trace'], [], {}],
         [[__PACKAGE__, __FILE__, $do_trace_line, 'main::do_trace'],                [], {}],
-        [[__PACKAGE__, __FILE__, $any,           'main::import'],                  [], {special => 'import'}],
+        [[__PACKAGE__, __FILE__, $any,           'main::import'],                  [], {lock => 'import'}],
         DNE(),
     ],
     "import trace"
@@ -105,7 +105,7 @@ like(
     [
         [[__PACKAGE__, __FILE__, $trace_line,    'Trace::Mask::Reference::trace'], [], {}],
         [[__PACKAGE__, __FILE__, $do_trace_line, 'main::do_trace'],                [], {}],
-        [[__PACKAGE__, __FILE__, $any,           'main::unimport'],                  [], {special => 'unimport'}],
+        [[__PACKAGE__, __FILE__, $any,           'main::unimport'],                  [], {lock => 'unimport'}],
         DNE(),
     ],
     "unimport trace"
@@ -121,7 +121,7 @@ END {
         [
             [[__PACKAGE__, __FILE__, $trace_line,    'Trace::Mask::Reference::trace'], [], {}],
             [[__PACKAGE__, __FILE__, $do_trace_line, 'main::do_trace'],                [], {}],
-            [[__PACKAGE__, __FILE__, $any,           'main::END'],                     [], {special => 'END'}],
+            [[__PACKAGE__, __FILE__, $any,           'main::END'],                     [], {lock => 'END'}],
             DNE(),
         ],
         "END trace"
