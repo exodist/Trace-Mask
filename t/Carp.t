@@ -352,4 +352,7 @@ tests mask_trace => sub {
     like($anon, qr/^\tmain::__ANON__\(('|")aaa('|"),\s*('|")bbb("|')\) called at $file line $line.?$/, "got anon");
 };
 
+Test::Stream::Workflow::Meta->get(__PACKAGE__)->run;
+Test::Stream::Workflow::Meta->purge(__PACKAGE__);
+
 done_testing;

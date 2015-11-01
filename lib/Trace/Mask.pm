@@ -2,7 +2,7 @@ package Trace::Mask;
 use strict;
 use warnings;
 
-our $VERSION = "0.000005";
+our $VERSION = "0.000006";
 
 sub masks() { no warnings 'once'; \%Trace::Mask::MASKS }
 
