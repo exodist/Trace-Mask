@@ -1,4 +1,6 @@
-use Test::Stream -V1, skip_without => {'Try::Tiny' => 0.03, Carp => '1.03'};
+use Test2::Require::Module Carp => '1.03';
+use Test2::Require::Module 'Try::Tiny' => '0.03';
+use Test2::Bundle::Spec;
 
 use Trace::Mask::TryTiny;
 use Trace::Mask::Carp qw/longmess/;

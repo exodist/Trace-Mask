@@ -1,4 +1,4 @@
-use Test::Stream -V1, class => 'Trace::Mask';
+use Test2::Bundle::Spec -target => 'Trace::Mask';
 
 ref_is($CLASS->masks, \%Trace::Mask::MASKS, "Got the reference");
 

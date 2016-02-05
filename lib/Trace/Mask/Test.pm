@@ -60,21 +60,21 @@ sub test_tracer {
         }
     }
 
-    require Test::Stream::Plugin::Compare;
-    require Test::Stream::Plugin::Subtest;
-    require Test::Stream::Context;
+    require Test2::Tools::Compare;
+    require Test2::Tools::Subtest;
+    require Test2::API;
 
-    my $ctx = Test::Stream::Context::context();
+    my $ctx = Test2::API::context();
 
     my $results = {};
     my $expects = {};
     my $ok;
     my $sig_die = $SIG{__DIE__};
 
-    Test::Stream::Plugin::Subtest::subtest_buffered($name => sub {
+    Test2::Tools::Subtest::subtest_buffered($name => sub {
         local $SIG{__DIE__} = $sig_die;
-        my $sctx = Test::Stream::Context::context();
-        $sctx->set_debug($ctx->debug);
+        my $sctx = Test2::API::context();
+        $sctx->set_trace($ctx->trace);
         for my $test (sort keys %tests) {
             my $sub = $tests{$test};
             my $result;
@@ -127,6 +127,9 @@ sub test_tracer {
                 $result = $convert->($result);
             }
             my $expect = $sub->(\&trace);
+            for my $frame (@$expect) {
+                $frame->[1] = [ map { ref($_) ? "$_" : $_ } @{$frame->[1]} ];
+            }
 
             $results->{$test} = $result;
             $expects->{$test} = $expect;
@@ -152,7 +155,7 @@ sub test_tracer {
             }
 
             delete $_->[2] for @$expect;
-            $ok = Test::Stream::Plugin::Compare::like($result, $expect, $test);
+            $ok = Test2::Tools::Compare::like($result, $expect, $test);
         }
         $sctx->release;
     });

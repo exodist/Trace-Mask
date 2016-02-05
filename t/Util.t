@@ -1,4 +1,4 @@
-use Test::Stream -V1, Spec, class => 'Trace::Mask::Util';
+use Test2::Bundle::Spec -target => 'Trace::Mask::Util';
 use Trace::Mask;
 
 use Trace::Mask::Util qw{

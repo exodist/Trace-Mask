@@ -1,4 +1,6 @@
-use Test::Stream -V1, Spec, skip_without => {Carp => '1.03'}, class => 'Trace::Mask::Carp';
+use Test2::Require::Module Carp => '1.03';
+use Test2::Bundle::Extended -target => 'Trace::Mask::Carp';
+use Test2::Tools::Spec -rand => 0;
 use Trace::Mask::Test qw{
     test_tracer NA
     test_stack_full_combo
@@ -30,7 +32,7 @@ tests carp_replacements => sub {
             for my $line (split /[\n\r]+/, $trace) {
                 my $info = parse_carp_line($line);
                 my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
-                my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                my $args = $info->{args} ? [map { m/^.*=\w+\(.*$/ ? "$_" : eval $_ } split /\s*,\s*/, $info->{args}] : [];
                 push @stack => [$call, $args];
             }
 
@@ -49,7 +51,7 @@ tests carp_replacements => sub {
             for my $line (split /[\n\r]+/, $trace) {
                 my $info = parse_carp_line($line);
                 my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
-                my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                my $args = $info->{args} ? [map { m/^.*=\w+\(.*$/ ? "$_" : eval $_ } split /\s*,\s*/, $info->{args}] : [];
                 push @stack => [$call, $args];
             }
 
@@ -68,7 +70,7 @@ tests carp_replacements => sub {
             for my $line (split /[\n\r]+/, $trace) {
                 my $info = parse_carp_line($line);
                 my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
-                my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                my $args = $info->{args} ? [map { m/^.*=\w+\(.*$/ ? "$_" : eval $_ } split /\s*,\s*/, $info->{args}] : [];
                 push @stack => [$call, $args];
             }
 
@@ -149,7 +151,7 @@ tests global_handlers => sub {
             for my $line (split /[\n\r]+/, $trace) {
                 my $info = parse_carp_line($line);
                 my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
-                my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                my $args = $info->{args} ? [map { m/^.*=\w+\(.*$/ ? "$_" : eval $_ } split /\s*,\s*/, $info->{args}] : [];
                 push @stack => [$call, $args];
             }
 
@@ -168,7 +170,7 @@ tests global_handlers => sub {
             for my $line (split /[\n\r]+/, $trace) {
                 my $info = parse_carp_line($line);
                 my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
-                my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                my $args = $info->{args} ? [map { m/^.*=\w+\(.*$/ ? "$_" : eval $_ } split /\s*,\s*/, $info->{args}] : [];
                 push @stack => [$call, $args];
             }
 
@@ -213,7 +215,7 @@ tests wrap => sub {
             for my $line (split /[\n\r]+/, $trace) {
                 my $info = parse_carp_line($line);
                 my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
-                my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                my $args = $info->{args} ? [map { m/^.*=\w+\(.*$/ ? "$_" : eval $_ } split /\s*,\s*/, $info->{args}] : [];
                 push @stack => [$call, $args];
             }
 
@@ -232,7 +234,7 @@ tests wrap => sub {
             for my $line (split /[\n\r]+/, $trace) {
                 my $info = parse_carp_line($line);
                 my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
-                my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                my $args = $info->{args} ? [map { m/^.*=\w+\(.*$/ ? "$_" : eval $_ } split /\s*,\s*/, $info->{args}] : [];
                 push @stack => [$call, $args];
             }
 
@@ -251,7 +253,7 @@ tests wrap => sub {
             for my $line (split /[\n\r]+/, $trace) {
                 my $info = parse_carp_line($line);
                 my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
-                my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                my $args = $info->{args} ? [map { m/^.*=\w+\(.*$/ ? "$_" : eval $_ } split /\s*,\s*/, $info->{args}] : [];
                 push @stack => [$call, $args];
             }
 
@@ -273,7 +275,7 @@ tests mask => sub {
                 for my $line (split /[\n\r]+/, $trace) {
                     my $info = parse_carp_line($line);
                     my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
-                    my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                    my $args = $info->{args} ? [map { m/^.*=\w+\(.*$/ ? "$_" : eval $_ } split /\s*,\s*/, $info->{args}] : [];
                     push @stack => [$call, $args];
                 }
 
@@ -292,7 +294,7 @@ tests mask => sub {
                 for my $line (split /[\n\r]+/, $trace) {
                     my $info = parse_carp_line($line);
                     my $call = [NA, @{$info}{qw/file line/}, $info->{sub} || NA];
-                    my $args = $info->{args} ? [map { eval $_ } split /\s*,\s*/, $info->{args}] : [];
+                    my $args = $info->{args} ? [map { m/^.*=\w+\(.*$/ ? "$_" : eval $_ } split /\s*,\s*/, $info->{args}] : [];
                     push @stack => [$call, $args];
                 }
 
@@ -351,8 +353,5 @@ tests mask_trace => sub {
     is($eval, "\teval {...} called at $file line $line", "got eval");
     like($anon, qr/^\tmain::__ANON__\(('|")aaa('|"),\s*('|")bbb("|')\) called at $file line $line.?$/, "got anon");
 };
-
-Test::Stream::Workflow::Meta->get(__PACKAGE__)->run;
-Test::Stream::Workflow::Meta->purge(__PACKAGE__);
 
 done_testing;

@@ -1,4 +1,6 @@
-use Test::Stream -V1, Subtest, class => 'Trace::Mask::Reference', Compare => '*';
+use Test2::Bundle::Extended -target => 'Trace::Mask::Reference';
+use Test2::Tools::Spec -rand => 0;
+
 use Trace::Mask;
 use Trace::Mask::Util qw/mask_frame mask_sub/;
 
