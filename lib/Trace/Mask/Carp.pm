@@ -145,6 +145,7 @@ sub mask_trace {
     my $num = 0;
     my $error;
     my $stopped = 0;
+    my $paused  = 0;
     for my $line (@lines) {
         my $fields = parse_carp_line($line);
 
@@ -158,8 +159,12 @@ sub mask_trace {
         $num++;
 
         my $mask = get_mask(@{$fields}{qw/file line/}, $fields->{sub} || '*');
-        next if $stopped && !($mask->{restart} || $mask->{lock});
-        $stopped = 0 if $mask->{restart};
+
+        next if $paused && !($mask->{restart} || $mask->{lock});
+        $paused = 0 if $mask->{restart};
+
+        next if $stopped && !$mask->{lock};
+
         $last = $fields unless $mask->{hide} || $mask->{shift} || $mask->{lock};
 
         unless ($mask->{lock}) {
@@ -196,6 +201,7 @@ sub mask_trace {
         }
 
         $stopped = 1 if $mask->{stop};
+        $paused  = 1 if $mask->{pause};
     }
 
     if ($shift) {

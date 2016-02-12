@@ -82,14 +82,17 @@ sub trace {
     my ($shift, $last);
     my $skip = 0;
     my $stopped = 0;
+    my $paused  = 0;
     while (my ($call, $args) = _call_details($level++)) {
         my $mask = get_mask(@{$call}[1,2,3]);
         my $frame = [$call, $args, $mask];
 
         my $lock = $mask->{lock};
 
-        next if $stopped && !($mask->{restart} || $lock);
-        $stopped = 0 if $mask->{restart};
+        next if $paused && !($mask->{restart} || $lock);
+        $paused = 0 if $mask->{restart};
+
+        next if $stopped && !$lock;
 
         $last = $frame unless $mask->{hide} || $mask->{shift} || $lock;
 
@@ -120,6 +123,7 @@ sub trace {
         push @stack => $frame if $push || $lock;
 
         $stopped = 1 if $mask->{stop};
+        $paused  = 1 if $mask->{pause};
     }
 
     if ($shift) {

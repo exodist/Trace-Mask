@@ -95,6 +95,7 @@ This is an overview of the MASKS structure:
                     # Behaviors
                     no_start => BOOL,     # Do not start a trace on this frame
                     stop     => BOOL,     # Stop tracing at this frame
+                    pause    => BOOL,     # Stop tracing at this frame until you see a restart
                     restart  => BOOL,     # Start tracing again at this frame
                     hide     => COUNT,    # Hide the frames completely
                     shift    => COUNT,    # Pretend this frame started X frames before it did
@@ -149,6 +150,7 @@ C<caller()>.
        # Behaviors
        no_start => BOOL,     # Do not start a trace on this frame
        stop     => BOOL,     # Stop tracing at this frame
+       pause    => BOOL,     # Stop tracing at this frame until you see a restart
        restart  => BOOL,     # Start tracing again at this frame
        hide     => COUNT,    # Hide the frames completely
        shift    => COUNT,    # Pretend this frame started X frames before it did
@@ -177,11 +179,17 @@ trace if they are not the start.
 This tells the stack tracer to stop tracing at this frame. The frame itself
 will be listed in the trace, unless this is combined with the 'hide' option.
 
+Usually you want pause.
+
+=item pause => $BOOL
+
+Same as stop, except that things can restart it.
+
 =item restart => $BOOL
 
-This tells the stack tracer to start again after a stop, effectively skipping
-all the frames between the stop and this start. This may be combined with
-'stop' in order to show a single frame.
+This tells the stack tracer to start again after a pause, effectively skipping
+all the frames between the pause and this restart. This may be combined with
+'pause' in order to show a single frame.
 
 =item hide => $COUNT
 

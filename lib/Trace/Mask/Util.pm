@@ -25,6 +25,7 @@ my %VALID_MASK = (
     no_start => 1,
     shift    => 1,
     stop     => 1,
+    pause    => 1,
     restart  => 1,
     lock     => 1,
 );

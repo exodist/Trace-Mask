@@ -156,6 +156,11 @@ sub test_tracer {
 
             delete $_->[2] for @$expect;
             $ok = Test2::Tools::Compare::like($result, $expect, $test);
+            local $Data::Dumper::Sortkeys = 1;
+            local $Data::Dumper::Sparseseen = 1;
+            use Data::Dumper;
+            print Dumper($result, $expect) unless $ok;
+
         }
         $sctx->release;
     });
@@ -342,9 +347,9 @@ sub test_stack_full_combo {              # line 1
 }                                        # line 5
 
 sub full_combo_1 { my $code = shift; @_ = (@_); full_combo_2($code, 'b') }    # line 7
-sub full_combo_2 { my $code = shift; @_ = (@_); mask_frame('stop' => 1, 'restart' => 1); full_combo_3($code, 'c') }    # line 8
+sub full_combo_2 { my $code = shift; @_ = (@_); mask_frame('pause' => 1, 'restart' => 1); full_combo_3($code, 'c') }    # line 8
 sub full_combo_3 { my $code = shift; @_ = (@_); full_combo_4($code, 'd') }    # line 9
-sub full_combo_4 { my $code = shift; @_ = (@_); mask_frame('stop' => 1); full_combo_5($code, 'e') }    # line 10
+sub full_combo_4 { my $code = shift; @_ = (@_); mask_frame('pause' => 1); full_combo_5($code, 'e') }    # line 10
 sub full_combo_5 { my $code = shift; @_ = (@_); full_combo_6($code, 'f') }                             # line 11
 sub full_combo_6 { my $code = shift; @_ = (@_); full_combo_7($code, 'g') }                             # line 12
 sub full_combo_7 { my $code = shift; @_ = (@_); full_combo_8($code, 'h') }                             # line 13
@@ -375,7 +380,7 @@ sub test_stack_restart {                 # line 1
 sub restart_1 { my $code = shift; @_ = (@_); restart_2($code, 'b') }                                # line 7
 sub restart_2 { my $code = shift; @_ = (@_); mask_frame('restart' => 1); restart_3($code, 'c') }    # line 8
 sub restart_3 { my $code = shift; @_ = (@_); restart_4($code, 'd') }                                # line 9
-sub restart_4 { my $code = shift; @_ = (@_); mask_frame('stop' => 1); restart_5($code, 'e') }       # line 10
+sub restart_4 { my $code = shift; @_ = (@_); mask_frame('pause' => 1); restart_5($code, 'e') }       # line 10
 sub restart_5 { my $code = shift; @_ = (@_); restart_6($code, 'f') }                                # line 11
 sub restart_6 { my $code = shift; @_ = (@_); mask_call({no_start => 1}, $code) }                    # line 12
 
@@ -394,7 +399,7 @@ sub special_2 { my $code = shift; @_ = (@_); unimport($code, 'c') }
 sub unimport {  my $code = shift; @_ = (@_); mask_frame(hide => 1); special_3($code, 'd') }
 sub special_3 { my $code = shift; @_ = (@_); special_4($code, 'e') }
 sub special_4 { my $code = shift; @_ = (@_); special_5($code, 'f') }
-sub special_5 { my $code = shift; @_ = (@_); mask_frame(stop => 1); special_6($code, 'g') }
+sub special_5 { my $code = shift; @_ = (@_); mask_frame(pause => 1); special_6($code, 'g') }
 sub special_6 { my $code = shift; @_ = (@_); $code->() }
 
 
@@ -412,7 +417,7 @@ sub lock_2 { my $code = shift; @_ = (@_); lock_x($code, 'c') }
 sub lock_x { my $code = shift; @_ = (@_); mask_frame(hide => 1, lock => 1); lock_3($code, 'd') }
 sub lock_3 { my $code = shift; @_ = (@_); lock_4($code, 'e') }
 sub lock_4 { my $code = shift; @_ = (@_); lock_5($code, 'f') }
-sub lock_5 { my $code = shift; @_ = (@_); mask_frame(stop => 1); lock_6($code, 'g') }
+sub lock_5 { my $code = shift; @_ = (@_); mask_frame(pause => 1); lock_6($code, 'g') }
 sub lock_6 { my $code = shift; @_ = (@_); $code->() }
 
 
