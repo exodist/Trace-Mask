@@ -1,4 +1,5 @@
-use Test2::Bundle::Spec -target => 'Trace::Mask::Util';
+use Test2::Bundle::Extended -target => 'Trace::Mask::Util';
+use Test2::Tools::Spec;
 use Trace::Mask;
 
 use Trace::Mask::Util qw{

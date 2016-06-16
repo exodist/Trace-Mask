@@ -1,4 +1,5 @@
-use Test2::Bundle::Spec;
+use Test2::Bundle::Extended;
+use Test2::Tools::Spec;
 
 use Trace::Mask::Test;
 use Trace::Mask::Reference qw/trace/;
