@@ -1,4 +1,4 @@
-use Test2::Bundle::Spec;
+use Test2::Bundle::SpecDeclare;
 use Trace::Mask::Reference qw/trace trace_string/;
 use Trace::Mask::Util qw/update_mask/;
 use Data::Dumper;

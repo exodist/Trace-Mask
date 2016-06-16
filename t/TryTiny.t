@@ -1,6 +1,6 @@
 use Test2::Require::Module Carp => '1.03';
 use Test2::Require::Module 'Try::Tiny' => '0.03';
-use Test2::Bundle::Spec;
+use Test2::Bundle::SpecDeclare;
 
 use Trace::Mask::TryTiny;
 use Trace::Mask::Carp qw/longmess/;
