@@ -7,7 +7,7 @@ use Carp qw/croak carp/;
 use Scalar::Util qw/reftype looks_like_number/;
 use B;
 
-our $VERSION = "0.000001";
+our $VERSION = "0.000008";
 
 use base 'Exporter';
 our @EXPORT_OK = qw{
